@@ -3,9 +3,13 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import type { Bounty, BountyStatus } from "@/lib/nostr/schema";
+import type { Bounty, BountyApplication, BountyStatus } from "@/lib/nostr/schema";
 import { parseBountyEvent, BOUNTY_KIND } from "@/lib/nostr/schema";
+import { fetchApplications } from "@/lib/nostr/bounty";
+import { getPublicKey, hasNIP07 } from "@/lib/nostr/nip07";
 import ApplyModal from "@/components/ApplyModal";
+import MarkCompleteModal from "@/components/MarkCompleteModal";
+import PayButton from "@/components/PayButton";
 
 const STATUS_COLORS: Record<BountyStatus, string> = {
   OPEN: "bg-green-500/20 text-green-400 border-green-500/30",
@@ -31,9 +35,14 @@ export default function BountyDetail() {
   const id = params.id as string;
 
   const [bounty, setBounty] = useState<Bounty | null>(null);
+  const [applications, setApplications] = useState<BountyApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [showApply, setShowApply] = useState(false);
+  const [showComplete, setShowComplete] = useState(false);
+  const [userPubkey, setUserPubkey] = useState<string | null>(null);
+  const [isPoster, setIsPoster] = useState(false);
 
+  // Fetch bounty
   useEffect(() => {
     async function fetchBounty() {
       try {
@@ -68,6 +77,25 @@ export default function BountyDetail() {
     fetchBounty();
   }, [id]);
 
+  // Fetch applications
+  useEffect(() => {
+    if (!bounty) return;
+    fetchApplications(bounty.id)
+      .then(setApplications)
+      .catch(console.error);
+  }, [bounty]);
+
+  // Check if current user is the poster
+  useEffect(() => {
+    if (!bounty || !hasNIP07()) return;
+    getPublicKey()
+      .then((pk) => {
+        setUserPubkey(pk);
+        setIsPoster(pk === bounty.pubkey);
+      })
+      .catch(() => {});
+  }, [bounty]);
+
   if (loading) {
     return (
       <main className="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center">
@@ -80,46 +108,33 @@ export default function BountyDetail() {
     return (
       <main className="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-bold text-zinc-400 mb-2">
-            Bounty not found
-          </h2>
-          <p className="text-zinc-500 mb-4">
-            Event ID: {id.slice(0, 16)}...
-          </p>
-          <Link
-            href="/"
-            className="text-orange-400 hover:text-orange-300"
-          >
-            ← Back to bounties
-          </Link>
+          <h2 className="text-xl font-bold text-zinc-400 mb-2">Bounty not found</h2>
+          <p className="text-zinc-500 mb-4">Event ID: {id.slice(0, 16)}...</p>
+          <Link href="/" className="text-orange-400 hover:text-orange-300">← Back to bounties</Link>
         </div>
       </main>
     );
   }
 
+  const winnerApp = bounty.winner
+    ? applications.find((a) => a.pubkey === bounty.winner)
+    : null;
+
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
       <header className="border-b border-zinc-800 px-6 py-4">
         <div className="max-w-3xl mx-auto flex items-center gap-2">
-          <Link href="/" className="text-zinc-400 hover:text-zinc-200">
-            ← Back
-          </Link>
+          <Link href="/" className="text-zinc-400 hover:text-zinc-200">← Back</Link>
           <span className="text-zinc-600 mx-2">|</span>
-          <span className="text-sm text-zinc-500">
-            {bounty.category}
-          </span>
+          <span className="text-sm text-zinc-500">{bounty.category}</span>
         </div>
       </header>
 
       <div className="max-w-3xl mx-auto px-6 py-8">
         {/* Title + Status */}
         <div className="flex items-start justify-between gap-4 mb-6">
-          <h1 className="text-2xl font-bold text-zinc-100">
-            {bounty.title}
-          </h1>
-          <span
-            className={`text-sm px-3 py-1 rounded border shrink-0 ${STATUS_COLORS[bounty.status]}`}
-          >
+          <h1 className="text-2xl font-bold text-zinc-100">{bounty.title}</h1>
+          <span className={`text-sm px-3 py-1 rounded border shrink-0 ${STATUS_COLORS[bounty.status]}`}>
             {bounty.status}
           </span>
         </div>
@@ -129,14 +144,10 @@ export default function BountyDetail() {
           <span className="text-orange-400 font-mono font-bold text-2xl">
             ⚡ {formatSats(bounty.rewardSats)} sats
           </span>
+          <span className="text-zinc-500">Posted {timeAgo(bounty.createdAt)}</span>
           <span className="text-zinc-500">
-            Posted {timeAgo(bounty.createdAt)}
-          </span>
-          <span className="text-zinc-500">
-            by{" "}
-            <code className="text-zinc-400">
-              {bounty.pubkey.slice(0, 12)}...
-            </code>
+            by <code className="text-zinc-400">{bounty.pubkey.slice(0, 12)}...</code>
+            {isPoster && <span className="text-orange-400 ml-1">(you)</span>}
           </span>
         </div>
 
@@ -144,60 +155,126 @@ export default function BountyDetail() {
         {bounty.tags.length > 0 && (
           <div className="flex gap-2 mb-6">
             {bounty.tags.map((t) => (
-              <span
-                key={t}
-                className="bg-zinc-800 px-2 py-1 rounded text-sm text-zinc-400"
-              >
-                {t}
-              </span>
+              <span key={t} className="bg-zinc-800 px-2 py-1 rounded text-sm text-zinc-400">{t}</span>
             ))}
           </div>
         )}
 
         {/* Description */}
         <div className="border border-zinc-800 rounded-lg p-6 mb-8 bg-zinc-900/50">
-          <h3 className="text-sm font-semibold text-zinc-400 mb-3 uppercase tracking-wide">
-            Description
-          </h3>
-          <div className="text-zinc-300 whitespace-pre-wrap leading-relaxed">
-            {bounty.content}
-          </div>
+          <h3 className="text-sm font-semibold text-zinc-400 mb-3 uppercase tracking-wide">Description</h3>
+          <div className="text-zinc-300 whitespace-pre-wrap leading-relaxed">{bounty.content}</div>
         </div>
+
+        {/* Winner banner */}
+        {bounty.status === "COMPLETED" && bounty.winner && (
+          <div className="border border-green-500/30 bg-green-500/10 rounded-lg p-4 mb-8">
+            <h3 className="text-sm font-semibold text-green-400 mb-1">🏆 Winner</h3>
+            <code className="text-zinc-300 text-sm">{bounty.winner.slice(0, 20)}...</code>
+            {winnerApp?.lightning && (
+              <p className="text-sm text-orange-400 mt-1">⚡ {winnerApp.lightning}</p>
+            )}
+          </div>
+        )}
 
         {/* Lightning Address */}
         {bounty.lightning && (
           <div className="border border-zinc-800 rounded-lg p-4 mb-8 bg-zinc-900/50">
             <h3 className="text-sm font-semibold text-zinc-400 mb-2 uppercase tracking-wide">
-              Lightning Address
+              Poster&apos;s Lightning Address
             </h3>
             <code className="text-orange-400">{bounty.lightning}</code>
           </div>
         )}
 
+        {/* Applications */}
+        {applications.length > 0 && (
+          <div className="border border-zinc-800 rounded-lg p-6 mb-8 bg-zinc-900/50">
+            <h3 className="text-sm font-semibold text-zinc-400 mb-4 uppercase tracking-wide">
+              Applications ({applications.length})
+            </h3>
+            <div className="space-y-4">
+              {applications.map((app) => (
+                <div
+                  key={app.id}
+                  className={`border rounded-lg p-4 ${
+                    bounty.winner === app.pubkey
+                      ? "border-green-500/50 bg-green-500/5"
+                      : "border-zinc-700"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <code className="text-xs text-zinc-500">{app.pubkey.slice(0, 16)}...</code>
+                    <span className="text-xs text-zinc-500">{timeAgo(app.createdAt)}</span>
+                  </div>
+                  <p className="text-sm text-zinc-300 whitespace-pre-wrap">{app.content}</p>
+                  {app.lightning && (
+                    <p className="text-xs text-orange-400 mt-2">⚡ {app.lightning}</p>
+                  )}
+                  {bounty.winner === app.pubkey && (
+                    <span className="text-xs text-green-400 mt-2 inline-block">🏆 Winner</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Actions */}
-        {bounty.status === "OPEN" && (
-          <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
+          {/* Worker: Apply */}
+          {bounty.status === "OPEN" && !isPoster && (
             <button
               onClick={() => setShowApply(true)}
               className="px-6 py-3 bg-orange-500 text-black rounded-lg font-bold hover:bg-orange-400 transition"
             >
               ⚡ Apply for this Bounty
             </button>
-            <a
-              href={`https://nostrudel.ninja/#/n/${bounty.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-6 py-3 border border-zinc-700 text-zinc-300 rounded-lg hover:border-zinc-500 transition"
+          )}
+
+          {/* Poster: Mark Complete */}
+          {isPoster && (bounty.status === "OPEN" || bounty.status === "IN_PROGRESS") && (
+            <button
+              onClick={() => setShowComplete(true)}
+              className="px-6 py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-500 transition"
             >
-              View on Nostrudel
-            </a>
-          </div>
+              ✅ Mark Complete
+            </button>
+          )}
+
+          {/* Poster: Pay Winner */}
+          {isPoster && bounty.status === "COMPLETED" && bounty.winner && (
+            <PayButton
+              bounty={bounty}
+              winnerLightning={winnerApp?.lightning}
+            />
+          )}
+
+          {/* Nostrudel link */}
+          <a
+            href={`https://nostrudel.ninja/#/n/${bounty.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-6 py-3 border border-zinc-700 text-zinc-300 rounded-lg hover:border-zinc-500 transition"
+          >
+            View on Nostrudel
+          </a>
+        </div>
+
+        {/* Modals */}
+        {showApply && (
+          <ApplyModal bounty={bounty} onClose={() => setShowApply(false)} />
         )}
 
-        {showApply && (
-          <ApplyModal
+        {showComplete && (
+          <MarkCompleteModal
             bounty={bounty}
-            onClose={() => setShowApply(false)}
+            applications={applications}
+            onClose={() => setShowComplete(false)}
+            onComplete={() => {
+              setShowComplete(false);
+              window.location.reload();
+            }}
           />
         )}
       </div>

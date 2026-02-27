@@ -4,7 +4,7 @@ Bitcoin-native bounty platform built on NOSTR. Post work, get paid in sats.
 
 ## Status
 
-**Phase 1 — Sprint 1 (Foundation)** ✅
+**Phase 1 — Sprint 3 (Complete Flow)** ✅
 
 - [x] Next.js 14 + TypeScript + Tailwind
 - [x] NDK relay pool configuration (4 relays)
@@ -53,3 +53,16 @@ Bounties are kind:30402 (NIP-99 Classified Listings) with custom tags:
 ## License
 
 MIT
+
+**Sprint 2** ✅
+- [x] Live relay subscriptions (NDK)
+- [x] Bounty detail page with full event rendering
+- [x] Apply modal with NIP-07 signing
+
+**Sprint 3** ✅
+- [x] Applications list on bounty detail (kind:1 replies)
+- [x] Mark Bounty Complete (US-005) — poster updates status via replaceable event
+- [x] Pay via Lightning (US-006) — WebLN auto-pay + manual fallback
+- [x] Winner display + poster detection via NIP-07
+- [x] Relay list updated per OVERSEER directive (damus, nostr.band, nos.lol, snort.social)
+- [x] Domain: mintclaw.dev
