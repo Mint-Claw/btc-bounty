@@ -1,0 +1,7 @@
+{
+  "framework": "nextjs",
+  "env": {
+    "NEXT_PUBLIC_APP_NAME": "BTC Bounty",
+    "NEXT_PUBLIC_RELAYS": "wss://relay.damus.io,wss://relay.nostr.band,wss://nos.lol,wss://relay.snort.social"
+  }
+}
