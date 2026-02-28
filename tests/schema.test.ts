@@ -138,3 +138,24 @@ describe("BOUNTY_KIND", () => {
     expect(BOUNTY_KIND).toBe(30402);
   });
 });
+
+describe("content sanitization", () => {
+  it("DOMPurify is available for import", async () => {
+    // Verify DOMPurify can be imported (used in bounty detail page)
+    const DOMPurify = await import("dompurify");
+    expect(DOMPurify).toBeDefined();
+  });
+});
+
+describe("nip19 encoding", () => {
+  it("encodes a pubkey to npub format", async () => {
+    const { nip19 } = await import("nostr-tools");
+    const hex =
+      "3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d";
+    const npub = nip19.npubEncode(hex);
+    expect(npub).toMatch(/^npub1/);
+    // Roundtrip
+    const decoded = nip19.decode(npub);
+    expect(decoded.data).toBe(hex);
+  });
+});

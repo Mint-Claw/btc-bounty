@@ -13,6 +13,7 @@ import ApplyModal from "@/components/ApplyModal";
 import ProfileBadge from "@/components/ProfileBadge";
 import MarkCompleteModal from "@/components/MarkCompleteModal";
 import PayButton from "@/components/PayButton";
+import MessageButton from "@/components/MessageButton";
 
 const STATUS_COLORS: Record<BountyStatus, string> = {
   OPEN: "bg-green-500/20 text-green-400 border-green-500/30",
@@ -148,7 +149,10 @@ export default function BountyDetail() {
             ⚡ {formatSats(bounty.rewardSats)} sats
           </span>
           <span className="text-zinc-500">Posted {timeAgo(bounty.createdAt)}</span>
-          <ProfileBadge pubkey={bounty.pubkey} isYou={isPoster} size="md" />
+          <div className="flex items-center gap-3">
+            <ProfileBadge pubkey={bounty.pubkey} isYou={isPoster} size="md" />
+            {!isPoster && <MessageButton pubkey={bounty.pubkey} />}
+          </div>
         </div>
 
         {/* Tags */}
