@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import NIP07Guard from "@/components/NIP07Guard";
+import ShareToNostr from "@/components/ShareToNostr";
 import type { BountyCategory } from "@/lib/nostr/schema";
 
 const CATEGORIES: BountyCategory[] = [
@@ -24,6 +25,7 @@ export default function PostBounty() {
   const [status, setStatus] = useState<
     "idle" | "signing" | "published" | "error"
   >("idle");
+  const [eventId, setEventId] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +33,7 @@ export default function PostBounty() {
 
     try {
       const { publishBounty } = await import("@/lib/nostr/bounty");
-      await publishBounty({
+      const id = await publishBounty({
         title,
         summary,
         content,
@@ -43,6 +45,7 @@ export default function PostBounty() {
           .map((t) => t.trim())
           .filter(Boolean),
       });
+      setEventId(id);
       setStatus("published");
     } catch (err) {
       console.error("Failed to publish bounty:", err);
@@ -61,6 +64,15 @@ export default function PostBounty() {
           <p className="text-zinc-400 mb-6">
             Your bounty is live on NOSTR relays.
           </p>
+          {eventId && (
+            <div className="mb-6">
+              <ShareToNostr
+                bountyTitle={title}
+                rewardSats={parseInt(rewardSats, 10)}
+                bountyEventId={eventId}
+              />
+            </div>
+          )}
           <Link
             href="/"
             className="px-4 py-2 bg-orange-500 text-black rounded font-semibold hover:bg-orange-400 transition"

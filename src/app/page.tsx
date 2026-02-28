@@ -52,12 +52,12 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
       {/* Header */}
-      <header className="border-b border-zinc-800 px-6 py-4">
+      <header className="border-b border-zinc-800 px-4 sm:px-6 py-3 sm:py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-2xl">⚡</span>
-            <h1 className="text-xl font-bold text-orange-400">BTC-Bounty</h1>
-            <span className="text-xs text-zinc-500 ml-2">
+            <h1 className="text-lg sm:text-xl font-bold text-orange-400">BTC-Bounty</h1>
+            <span className="hidden sm:inline text-xs text-zinc-500 ml-2">
               Bitcoin-native bounties on NOSTR
             </span>
           </div>
@@ -71,7 +71,7 @@ export default function Home() {
       </header>
 
       {/* Bounty List */}
-      <div className="max-w-4xl mx-auto px-6 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-zinc-300">
             Open Bounties

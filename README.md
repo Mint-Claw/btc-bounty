@@ -1,68 +1,75 @@
 # ⚡ BTC-Bounty
 
-Bitcoin-native bounty platform built on NOSTR. Post work, get paid in sats.
+Bitcoin-native bounty board built on NOSTR. Post bounties, apply for work, pay via Lightning — all using your NOSTR identity.
 
-## Status
+## Features
 
-**Phase 1 — Sprint 3 (Complete Flow)** ✅
+- **Post Bounties** — Publish kind:30402 replaceable events to NOSTR relays
+- **Apply for Work** — Reply to bounties via kind:1 events with NIP-07 signing
+- **Mark Complete** — Select a winner and update bounty status on-chain
+- **Pay via Lightning** — WebLN auto-pay (Alby) or manual Lightning address
+- **NOSTR Profiles** — NIP-01 kind:0 profile display with avatars
+- **Share to Feed** — Opt-in kind:1 announcement when posting bounties
+- **Mobile Responsive** — Works on 375px+ screens
 
-- [x] Next.js 14 + TypeScript + Tailwind
-- [x] NDK relay pool configuration (4 relays)
-- [x] NIP-07 adapter (Alby, nos2x, Nostore)
-- [x] Kind:30402 bounty event schema + parser
-- [x] Bounty listing page (mock data)
-- [x] Post bounty form with NIP-07 signing
-- [x] NIP07Guard component (extension detection)
-- [x] WebLN adapter for Lightning payments
-- [ ] Live relay subscriptions (Sprint 2)
-- [ ] Bounty detail page (Sprint 2)
-- [ ] Apply modal (Sprint 2)
+## Prerequisites
 
-## Stack
+- Node.js 18+
+- pnpm
+- A NIP-07 browser extension ([Alby](https://getalby.com) recommended)
 
-- **Frontend:** Next.js 14, TypeScript, Tailwind CSS
-- **Protocol:** NOSTR (kind:30402 Classified Listings)
-- **Payments:** Lightning Network (WebLN + manual fallback)
-- **Auth:** NIP-07 browser extensions (no accounts, no passwords)
-- **Hosting:** Vercel (free tier, zero backend)
-
-## Development
+## Setup
 
 ```bash
+git clone https://github.com/Mint-Claw/btc-bounty.git
+cd btc-bounty
 pnpm install
 pnpm dev
 ```
 
-## Architecture
+Open [http://localhost:3000](http://localhost:3000).
 
-100% client-side. NOSTR is the database. No backend, no API routes, no server-side secrets.
+## Environment Variables
 
-All private key operations are handled by the user's NIP-07 browser extension (Alby recommended).
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NEXT_PUBLIC_RELAYS` | Built-in list | Comma-separated relay URLs |
+| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | App URL for share links |
 
-## Event Schema
+## Deploy to Vercel
 
-Bounties are kind:30402 (NIP-99 Classified Listings) with custom tags:
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Mint-Claw/btc-bounty)
 
-```
-["reward", "50000", "sats"]
-["status", "OPEN"]
-["category", "code"]
-["lightning", "user@getalby.com"]
-```
+Or manually: [Vercel Next.js Deploy Guide](https://vercel.com/docs/frameworks/nextjs)
+
+## Tech Stack
+
+- Next.js 15 (App Router)
+- TypeScript
+- Tailwind CSS
+- NDK (NOSTR Development Kit)
+- NIP-07 (browser extension signing)
+- WebLN (Lightning payments)
+
+## NOSTR Event Kinds
+
+| Kind | Usage |
+|------|-------|
+| 30402 | Bounty (replaceable event with d-tag) |
+| 1 | Applications (replies) + feed shares |
+| 0 | Profile metadata (NIP-01) |
+
+## Security
+
+- No private keys are ever stored, logged, or transmitted
+- All signing happens via NIP-07 browser extension
+- Event content is sanitized before rendering
+- CSP headers configured in `next.config.ts`
 
 ## License
 
 MIT
 
-**Sprint 2** ✅
-- [x] Live relay subscriptions (NDK)
-- [x] Bounty detail page with full event rendering
-- [x] Apply modal with NIP-07 signing
+## Domain
 
-**Sprint 3** ✅
-- [x] Applications list on bounty detail (kind:1 replies)
-- [x] Mark Bounty Complete (US-005) — poster updates status via replaceable event
-- [x] Pay via Lightning (US-006) — WebLN auto-pay + manual fallback
-- [x] Winner display + poster detection via NIP-07
-- [x] Relay list updated per OVERSEER directive (damus, nostr.band, nos.lol, snort.social)
-- [x] Domain: mintclaw.dev
+[mintclaw.dev](https://mintclaw.dev)

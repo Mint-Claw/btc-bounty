@@ -1,5 +1,7 @@
 "use client";
 
+import DOMPurify from "dompurify";
+
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -8,6 +10,7 @@ import { parseBountyEvent, BOUNTY_KIND } from "@/lib/nostr/schema";
 import { fetchApplications } from "@/lib/nostr/bounty";
 import { getPublicKey, hasNIP07 } from "@/lib/nostr/nip07";
 import ApplyModal from "@/components/ApplyModal";
+import ProfileBadge from "@/components/ProfileBadge";
 import MarkCompleteModal from "@/components/MarkCompleteModal";
 import PayButton from "@/components/PayButton";
 
@@ -122,7 +125,7 @@ export default function BountyDetail() {
 
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
-      <header className="border-b border-zinc-800 px-6 py-4">
+      <header className="border-b border-zinc-800 px-4 sm:px-6 py-3 sm:py-4">
         <div className="max-w-3xl mx-auto flex items-center gap-2">
           <Link href="/" className="text-zinc-400 hover:text-zinc-200">← Back</Link>
           <span className="text-zinc-600 mx-2">|</span>
@@ -130,9 +133,9 @@ export default function BountyDetail() {
         </div>
       </header>
 
-      <div className="max-w-3xl mx-auto px-6 py-8">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Title + Status */}
-        <div className="flex items-start justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-4 mb-6">
           <h1 className="text-2xl font-bold text-zinc-100">{bounty.title}</h1>
           <span className={`text-sm px-3 py-1 rounded border shrink-0 ${STATUS_COLORS[bounty.status]}`}>
             {bounty.status}
@@ -140,15 +143,12 @@ export default function BountyDetail() {
         </div>
 
         {/* Reward + Meta */}
-        <div className="flex items-center gap-6 mb-8 text-sm">
-          <span className="text-orange-400 font-mono font-bold text-2xl">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-6 mb-6 sm:mb-8 text-sm">
+          <span className="text-orange-400 font-mono font-bold text-xl sm:text-2xl">
             ⚡ {formatSats(bounty.rewardSats)} sats
           </span>
           <span className="text-zinc-500">Posted {timeAgo(bounty.createdAt)}</span>
-          <span className="text-zinc-500">
-            by <code className="text-zinc-400">{bounty.pubkey.slice(0, 12)}...</code>
-            {isPoster && <span className="text-orange-400 ml-1">(you)</span>}
-          </span>
+          <ProfileBadge pubkey={bounty.pubkey} isYou={isPoster} size="md" />
         </div>
 
         {/* Tags */}
@@ -163,7 +163,7 @@ export default function BountyDetail() {
         {/* Description */}
         <div className="border border-zinc-800 rounded-lg p-6 mb-8 bg-zinc-900/50">
           <h3 className="text-sm font-semibold text-zinc-400 mb-3 uppercase tracking-wide">Description</h3>
-          <div className="text-zinc-300 whitespace-pre-wrap leading-relaxed">{bounty.content}</div>
+          <div className="text-zinc-300 whitespace-pre-wrap leading-relaxed">{typeof window !== "undefined" ? DOMPurify.sanitize(bounty.content) : bounty.content}</div>
         </div>
 
         {/* Winner banner */}
@@ -204,10 +204,10 @@ export default function BountyDetail() {
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <code className="text-xs text-zinc-500">{app.pubkey.slice(0, 16)}...</code>
+                    <ProfileBadge pubkey={app.pubkey} size="sm" />
                     <span className="text-xs text-zinc-500">{timeAgo(app.createdAt)}</span>
                   </div>
-                  <p className="text-sm text-zinc-300 whitespace-pre-wrap">{app.content}</p>
+                  <p className="text-sm text-zinc-300 whitespace-pre-wrap">{typeof window !== "undefined" ? DOMPurify.sanitize(app.content) : app.content}</p>
                   {app.lightning && (
                     <p className="text-xs text-orange-400 mt-2">⚡ {app.lightning}</p>
                   )}
@@ -221,7 +221,7 @@ export default function BountyDetail() {
         )}
 
         {/* Actions */}
-        <div className="flex gap-3 flex-wrap">
+        <div className="flex flex-col sm:flex-row gap-3">
           {/* Worker: Apply */}
           {bounty.status === "OPEN" && !isPoster && (
             <button
