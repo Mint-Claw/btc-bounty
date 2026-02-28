@@ -1,54 +1,20 @@
+"use client";
+
+import { useState } from "react";
 import BountyCard from "@/components/BountyCard";
-import type { Bounty } from "@/lib/nostr/schema";
+import RelayStatus from "@/components/RelayStatus";
+import { useBounties, useNDK, type BountyFilter } from "@/hooks/useBounties";
+import type { BountyStatus, BountyCategory } from "@/lib/nostr/schema";
 import Link from "next/link";
 
-// Mock data — replaced by NDK subscription in Sprint 2
-const MOCK_BOUNTIES: Bounty[] = [
-  {
-    id: "mock1",
-    pubkey: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
-    dTag: "logo-design",
-    title: "Design a logo for BTC-Bounty",
-    summary: "Clean, minimal logo. Bitcoin orange + lightning bolt motif.",
-    content: "Looking for a professional logo...",
-    rewardSats: 50000,
-    status: "OPEN",
-    category: "design",
-    lightning: "poster@getalby.com",
-    createdAt: Math.floor(Date.now() / 1000) - 3600,
-    tags: ["design", "bitcoin", "logo"],
-  },
-  {
-    id: "mock2",
-    pubkey: "b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3",
-    dTag: "nostr-bot",
-    title: "Build a NOSTR relay monitor bot",
-    summary: "Monitor relay health, post status updates as kind:1 notes.",
-    content: "Need a lightweight bot that monitors relay uptime...",
-    rewardSats: 150000,
-    status: "OPEN",
-    category: "code",
-    lightning: "dev@wallet.com",
-    createdAt: Math.floor(Date.now() / 1000) - 7200,
-    tags: ["code", "nostr", "bot"],
-  },
-  {
-    id: "mock3",
-    pubkey: "c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
-    dTag: "whitepaper-review",
-    title: "Review and edit a Bitcoin DeFi whitepaper",
-    summary: "10-page whitepaper needs technical review and copyediting.",
-    content: "Technical whitepaper on Bitcoin-native DeFi...",
-    rewardSats: 75000,
-    status: "IN_PROGRESS",
-    category: "writing",
-    lightning: "writer@ln.tips",
-    createdAt: Math.floor(Date.now() / 1000) - 86400,
-    tags: ["writing", "bitcoin", "defi"],
-  },
-];
+const STATUSES: BountyStatus[] = ["OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
+const CATEGORIES: BountyCategory[] = ["code", "design", "writing", "research", "other"];
 
 export default function Home() {
+  const { ndk, connected } = useNDK();
+  const [filter, setFilter] = useState<BountyFilter>({});
+  const { bounties, loading, error, refetch } = useBounties(ndk, filter);
+
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
       {/* Header */}
@@ -61,35 +27,117 @@ export default function Home() {
               Bitcoin-native bounties on NOSTR
             </span>
           </div>
-          <Link
-            href="/post"
-            className="px-4 py-2 bg-orange-500 text-black rounded-lg font-semibold text-sm hover:bg-orange-400 transition"
-          >
-            Post Bounty
-          </Link>
+          <div className="flex items-center gap-3">
+            <RelayStatus />
+            <Link
+              href="/post"
+              className="px-4 py-2 bg-orange-500 text-black rounded-lg font-semibold text-sm hover:bg-orange-400 transition"
+            >
+              Post Bounty
+            </Link>
+          </div>
         </div>
       </header>
 
+      {/* Filters */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-6">
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* Status filter */}
+          <select
+            value={filter.status ?? ""}
+            onChange={(e) =>
+              setFilter((f) => ({
+                ...f,
+                status: e.target.value || undefined,
+              }))
+            }
+            className="bg-zinc-900 border border-zinc-700 text-zinc-300 text-sm rounded-lg px-3 py-1.5 focus:border-orange-500 focus:outline-none"
+          >
+            <option value="">All statuses</option>
+            {STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {s.replace("_", " ")}
+              </option>
+            ))}
+          </select>
+
+          {/* Category filter */}
+          <select
+            value={filter.category ?? ""}
+            onChange={(e) =>
+              setFilter((f) => ({
+                ...f,
+                category: e.target.value || undefined,
+              }))
+            }
+            className="bg-zinc-900 border border-zinc-700 text-zinc-300 text-sm rounded-lg px-3 py-1.5 focus:border-orange-500 focus:outline-none"
+          >
+            <option value="">All categories</option>
+            {CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c.charAt(0).toUpperCase() + c.slice(1)}
+              </option>
+            ))}
+          </select>
+
+          <button
+            onClick={() => refetch()}
+            className="text-sm text-zinc-400 hover:text-orange-400 transition ml-auto"
+          >
+            ↻ Refresh
+          </button>
+        </div>
+      </div>
+
       {/* Bounty List */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        <div className="flex items-center justify-between mb-6">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+        <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-zinc-300">
-            Open Bounties
+            {filter.status || "All"} Bounties
           </h2>
           <span className="text-sm text-zinc-500">
-            {MOCK_BOUNTIES.length} bounties
+            {loading ? "Loading..." : `${bounties.length} bounties`}
           </span>
         </div>
 
+        {!connected && (
+          <div className="text-center py-12 text-zinc-500">
+            <p className="text-lg mb-2">Connecting to NOSTR relays...</p>
+            <p className="text-sm">This may take a few seconds.</p>
+          </div>
+        )}
+
+        {connected && error && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-4">
+            <p className="text-red-400 text-sm">{error}</p>
+            <button
+              onClick={() => refetch()}
+              className="text-red-400 underline text-sm mt-1"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {connected && !loading && bounties.length === 0 && (
+          <div className="text-center py-12 text-zinc-500">
+            <p className="text-lg mb-2">No bounties found</p>
+            <p className="text-sm">
+              {filter.status || filter.category
+                ? "Try clearing your filters, or "
+                : "Be the first — "}
+              <Link href="/post" className="text-orange-400 hover:underline">
+                post a bounty
+              </Link>
+            </p>
+          </div>
+        )}
+
         <div className="space-y-3">
-          {MOCK_BOUNTIES.map((bounty) => (
+          {bounties.map((bounty) => (
             <BountyCard key={bounty.id} bounty={bounty} />
           ))}
         </div>
-
-        <p className="text-center text-zinc-600 text-sm mt-8">
-          Mock data — live relay subscriptions coming in Sprint 2
-        </p>
       </div>
     </main>
   );
