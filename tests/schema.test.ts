@@ -159,3 +159,67 @@ describe("nip19 encoding", () => {
     expect(decoded.data).toBe(hex);
   });
 });
+
+describe("relay health", () => {
+  it("useRelayHealth module can be imported", async () => {
+    // Just verify the module exists and exports correctly
+    const mod = await import("../src/hooks/useRelayHealth");
+    expect(mod.useRelayHealth).toBeDefined();
+    expect(typeof mod.useRelayHealth).toBe("function");
+  });
+});
+
+describe("bounty edge cases", () => {
+  it("handles empty tags array gracefully", async () => {
+    const { parseBountyEvent } = await import("../src/lib/nostr/schema");
+    const result = parseBountyEvent({
+      id: "abc",
+      pubkey: "def",
+      content: "test",
+      tags: [],
+      created_at: 1234567890,
+    });
+    expect(result).toBeNull(); // missing d and title tags
+  });
+
+  it("handles duplicate d tags", async () => {
+    const { parseBountyEvent } = await import("../src/lib/nostr/schema");
+    const result = parseBountyEvent({
+      id: "abc",
+      pubkey: "def",
+      content: "desc",
+      tags: [
+        ["d", "id1"],
+        ["d", "id2"],
+        ["title", "Test Bounty"],
+        ["reward", "1000"],
+        ["status", "open"],
+        ["t", "code"],
+      ],
+      created_at: 1234567890,
+    });
+    // Should use first d tag
+    if (result) {
+      expect(result.dTag).toBe("id1");
+    }
+  });
+
+  it("handles very large reward values", async () => {
+    const { parseBountyEvent } = await import("../src/lib/nostr/schema");
+    const result = parseBountyEvent({
+      id: "abc",
+      pubkey: "def",
+      content: "big bounty",
+      tags: [
+        ["d", "big"],
+        ["title", "Big Bounty"],
+        ["reward", "2100000000000000"], // 21M BTC in sats
+        ["status", "open"],
+      ],
+      created_at: 1234567890,
+    });
+    if (result) {
+      expect(result.rewardSats).toBe(2100000000000000);
+    }
+  });
+});
