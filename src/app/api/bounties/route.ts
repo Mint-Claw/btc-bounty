@@ -2,6 +2,7 @@
  * Agent REST API — Bounty endpoints
  * 
  * POST /api/bounties — Create a new bounty (requires X-API-Key)
+ *   Optional: set escrow=true to create a BTCPay invoice for escrow deposit.
  * GET  /api/bounties — List open bounties (public)
  */
 
@@ -15,6 +16,8 @@ import {
   parseBountyEvent,
   type BountyCategory,
 } from "@/lib/nostr/schema";
+import { createInvoice, btcpayHealthCheck } from "@/lib/server/btcpay";
+import { createPayment } from "@/lib/server/payments";
 
 export async function POST(request: NextRequest) {
   const agent = authenticateRequest(request);
@@ -32,7 +35,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { title, summary, content, rewardSats, category, lightning, tags, expiry, image } =
+  const { title, summary, content, rewardSats, category, lightning, tags, expiry, image, escrow } =
     body as {
       title?: string;
       summary?: string;
@@ -43,6 +46,7 @@ export async function POST(request: NextRequest) {
       tags?: string[];
       expiry?: number;
       image?: string;
+      escrow?: boolean;
     };
 
   if (!title || !content || !rewardSats || !lightning) {
@@ -73,12 +77,49 @@ export async function POST(request: NextRequest) {
 
   try {
     const relayCount = await publishToRelays(signed);
+
+    // If escrow requested, create a BTCPay invoice for the bounty amount
+    let escrowInvoice = null;
+    if (escrow) {
+      try {
+        const invoice = await createInvoice({
+          amount: rewardSats,
+          bountyId: dTag,
+          description: `Bounty escrow: ${title}`,
+          expirationMinutes: 120,
+        });
+
+        // Track payment
+        await createPayment({
+          bountyId: dTag,
+          bountyEventId: signed.id,
+          posterPubkey: signed.pubkey,
+          amountSats: rewardSats,
+          btcpayInvoiceId: invoice.id,
+        });
+
+        escrowInvoice = {
+          invoiceId: invoice.id,
+          checkoutLink: invoice.checkoutLink,
+          status: invoice.status,
+          expiresAt: invoice.expirationTime,
+        };
+      } catch (e) {
+        // Non-fatal: bounty is posted but escrow creation failed
+        console.error("[bounty] Escrow invoice creation failed:", e);
+        escrowInvoice = {
+          error: `Escrow creation failed: ${(e as Error).message}`,
+        };
+      }
+    }
+
     return NextResponse.json(
       {
         id: signed.id,
         pubkey: signed.pubkey,
         dTag,
         relaysPublished: relayCount,
+        ...(escrowInvoice && { escrow: escrowInvoice }),
       },
       { status: 201 },
     );
