@@ -2,6 +2,7 @@
 
 import type { Bounty, BountyStatus } from "@/lib/nostr/schema";
 import Link from "next/link";
+import FundedBadge from "./FundedBadge";
 
 const STATUS_COLORS: Record<BountyStatus, string> = {
   OPEN: "bg-green-500/20 text-green-400 border-green-500/30",
@@ -52,6 +53,7 @@ export default function BountyCard({ bounty }: { bounty: Bounty }) {
             >
               {bounty.status}
             </span>
+            <FundedBadge bountyId={bounty.id} />
           </div>
         </div>
         <div className="flex items-center gap-3 mt-3 text-xs text-zinc-500">
