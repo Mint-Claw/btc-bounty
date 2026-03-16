@@ -58,6 +58,17 @@ export function authenticateRequest(
 }
 
 /**
+ * Look up an agent identity by their NOSTR pubkey.
+ * Returns the agent or null if no managed key exists for this pubkey.
+ */
+export function getAgentByPubkey(pubkey: string): AgentIdentity | null {
+  for (const agent of getKeys().values()) {
+    if (agent.pubkey === pubkey) return agent;
+  }
+  return null;
+}
+
+/**
  * Reset cached keys (for testing).
  */
 export function resetKeyCache(): void {

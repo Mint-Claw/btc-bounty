@@ -22,6 +22,7 @@ import {
   updatePaymentStatus,
   getPaymentByPayoutId,
 } from "@/lib/server/payments";
+import { markBountyFunded, markBountyPaid } from "@/lib/server/bounty-updater";
 
 export async function POST(request: NextRequest) {
   // Read raw body for signature verification
@@ -99,15 +100,19 @@ async function handleInvoiceSettled(payload: WebhookPayload) {
   if (payment) {
     await updatePaymentStatus(payment.id, "funded");
     console.log(`[webhook] Bounty ${bountyId} funded via invoice ${payload.invoiceId}`);
+
+    // Update NOSTR event to show funded status
+    const relays = await markBountyFunded(bountyId, payment.posterPubkey);
+    if (relays > 0) {
+      console.log(`[webhook] NOSTR event updated: bounty ${bountyId} marked funded on ${relays} relays`);
+    } else {
+      console.warn(`[webhook] Could not update NOSTR event for bounty ${bountyId} (no managed nsec or relay error)`);
+    }
   } else {
     console.warn(
       `[webhook] No payment record found for invoice ${payload.invoiceId}`,
     );
   }
-
-  // TODO: Update NOSTR bounty event to show "funded" status
-  // This requires the bounty poster's nsec, which is stored in the
-  // API key mapping. We'll need to look up the agent by bountyId.
 }
 
 async function handlePayoutApproved(payload: WebhookPayload) {
@@ -136,6 +141,14 @@ async function handlePayoutApproved(payload: WebhookPayload) {
     console.log(
       `[webhook] Bounty ${bountyId} paid to ${winnerPubkey} via payout ${payload.payoutId}`,
     );
+
+    // Update NOSTR event to show completed + winner
+    if (winnerPubkey) {
+      const relays = await markBountyPaid(bountyId, payment.posterPubkey, winnerPubkey);
+      if (relays > 0) {
+        console.log(`[webhook] NOSTR event updated: bounty ${bountyId} completed, winner ${winnerPubkey.slice(0, 12)}...`);
+      }
+    }
   }
 }
 
