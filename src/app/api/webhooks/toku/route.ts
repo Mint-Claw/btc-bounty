@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { TokuSyncService } from "@/lib/server/toku-sync";
+import { handleTokuApplication } from "@/lib/server/toku-nostr-bridge";
 import type { TokuWebhookPayload } from "@/lib/server/toku";
 import { createHmac } from "crypto";
 
@@ -41,13 +42,12 @@ function getSyncService(): TokuSyncService {
   if (!syncService) {
     syncService = new TokuSyncService({
       onApplication: async (bountyDTag, applicant) => {
-        // In production, this would publish a kind:1 NOSTR reply
-        // using the server-side signing from bounty-updater.ts
+        const relays = await handleTokuApplication(bountyDTag, applicant);
         console.log(
-          `[toku-webhook] TODO: Forward toku bid to NOSTR reply`,
+          `[toku-webhook] Forwarded toku bid to NOSTR:`,
           `bounty=${bountyDTag} agent=${applicant.tokuAgentId}`,
           `price=$${(applicant.priceCents / 100).toFixed(2)}`,
-          `message=${applicant.message.slice(0, 100)}`
+          `relays=${relays}`
         );
       },
     });

@@ -69,6 +69,15 @@ export function getAgentByPubkey(pubkey: string): AgentIdentity | null {
 }
 
 /**
+ * Verify an API key string directly (without Request object).
+ * Returns the agent identity or null if invalid.
+ */
+export function verifyApiKey(apiKey: string): AgentIdentity | null {
+  if (!apiKey) return null;
+  return getKeys().get(apiKey) ?? null;
+}
+
+/**
  * Reset cached keys (for testing).
  */
 export function resetKeyCache(): void {
