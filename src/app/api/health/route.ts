@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { btcpayHealthCheck } from "@/lib/server/btcpay";
 import { getPaymentStats } from "@/lib/server/payments";
+import { checkAllRelays, relayHealthSummary } from "@/lib/server/relay-health";
 
 /**
  * GET /api/health — System health check
@@ -31,20 +32,13 @@ export async function GET() {
     dbStatus = { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 
-  // Relay configuration
-  const defaultRelays = [
-    "wss://relay.damus.io",
-    "wss://relay.nostr.band",
-    "wss://nos.lol",
-    "wss://relay.snort.social",
-  ];
-  const configuredRelays = process.env.NEXT_PUBLIC_RELAYS
-    ? process.env.NEXT_PUBLIC_RELAYS.split(",").map((r) => r.trim())
-    : defaultRelays;
+  // Relay health — actual connectivity check
+  const relayResults = await checkAllRelays();
+  const relaySummary = relayHealthSummary(relayResults);
 
   return NextResponse.json({
-    status: "ok",
-    version: "2.1.0",
+    status: relaySummary.healthy && dbStatus.ok ? "ok" : "degraded",
+    version: process.env.npm_package_version || "0.1.0",
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     btcpay: {
@@ -54,8 +48,12 @@ export async function GET() {
     },
     database: dbStatus,
     nostr: {
-      relays: configuredRelays,
-      relay_count: configuredRelays.length,
+      ...relaySummary,
+      relays: relayResults.map((r) => ({
+        url: r.url,
+        status: r.status,
+        latencyMs: r.latencyMs,
+      })),
     },
     payments: stats,
     env: {
