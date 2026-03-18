@@ -2,18 +2,7 @@
  * WebLN Adapter — Lightning payment via Alby or fallback to copy address.
  */
 
-declare global {
-  interface Window {
-    webln?: {
-      enable(): Promise<void>;
-      sendPayment(paymentRequest: string): Promise<{ preimage: string }>;
-      keysend(args: {
-        destination: string;
-        amount: string | number;
-      }): Promise<{ preimage: string }>;
-    };
-  }
-}
+// WebLN types: see src/types/global.d.ts
 
 export function hasWebLN(): boolean {
   return typeof window !== "undefined" && !!window.webln;
