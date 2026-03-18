@@ -136,15 +136,29 @@ export async function GET(request: NextRequest) {
   const status = searchParams.get("status") || "OPEN";
   const category = searchParams.get("category");
   const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100);
+  const search = searchParams.get("q")?.toLowerCase();
+  const tag = searchParams.get("tag")?.toLowerCase();
+  const minReward = parseInt(searchParams.get("min_reward") || "0");
+  const maxReward = parseInt(searchParams.get("max_reward") || "0") || Infinity;
+  const since = searchParams.get("since"); // ISO date or unix timestamp
+  const sortBy = searchParams.get("sort") || "newest"; // newest, reward, expiring
 
   try {
     const filter: Record<string, unknown> = {
       kinds: [BOUNTY_KIND],
-      limit,
+      limit: limit * 2, // Fetch extra to account for client-side filtering
     };
 
+    // Use Nostr since filter if provided
+    if (since) {
+      const sinceTs = since.includes("-")
+        ? Math.floor(new Date(since).getTime() / 1000)
+        : parseInt(since);
+      if (!isNaN(sinceTs)) filter.since = sinceTs;
+    }
+
     const events = await fetchFromRelays(filter);
-    const bounties = events
+    let bounties = events
       .map((e) =>
         parseBountyEvent({
           id: e.id,
@@ -156,9 +170,63 @@ export async function GET(request: NextRequest) {
       )
       .filter((b) => b !== null)
       .filter((b) => !status || b.status === status)
-      .filter((b) => !category || b.category === category);
+      .filter((b) => !category || b.category === category)
+      .filter(
+        (b) => b.rewardSats >= minReward && b.rewardSats <= maxReward,
+      );
 
-    return NextResponse.json({ bounties, count: bounties.length });
+    // Text search across title, content, and tags
+    if (search) {
+      bounties = bounties.filter(
+        (b) =>
+          b.title.toLowerCase().includes(search) ||
+          b.content?.toLowerCase().includes(search) ||
+          b.tags?.some((t: string) => t.toLowerCase().includes(search)),
+      );
+    }
+
+    // Filter by specific tag
+    if (tag) {
+      bounties = bounties.filter(
+        (b) => b.tags?.some((t: string) => t.toLowerCase() === tag),
+      );
+    }
+
+    // Sort
+    switch (sortBy) {
+      case "reward":
+        bounties.sort((a, b) => b.rewardSats - a.rewardSats);
+        break;
+      case "expiring":
+        bounties.sort((a, b) => {
+          const aExp = a.expiry ?? Infinity;
+          const bExp = b.expiry ?? Infinity;
+          return aExp - bExp;
+        });
+        break;
+      case "oldest":
+        bounties.sort((a, b) => a.createdAt - b.createdAt);
+        break;
+      default: // newest
+        bounties.sort((a, b) => b.createdAt - a.createdAt);
+    }
+
+    // Apply limit after filtering
+    bounties = bounties.slice(0, limit);
+
+    return NextResponse.json({
+      bounties,
+      count: bounties.length,
+      filters: {
+        status,
+        ...(category && { category }),
+        ...(search && { q: search }),
+        ...(tag && { tag }),
+        ...(minReward > 0 && { min_reward: minReward }),
+        ...(maxReward < Infinity && { max_reward: maxReward }),
+        sort: sortBy,
+      },
+    });
   } catch (e) {
     return NextResponse.json(
       { error: `Relay error: ${(e as Error).message}` },
