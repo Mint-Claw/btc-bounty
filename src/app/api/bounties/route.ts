@@ -19,6 +19,7 @@ import {
 import { createInvoice, btcpayHealthCheck } from "@/lib/server/btcpay";
 import { createPayment } from "@/lib/server/payments";
 import { verifyNostrEvent } from "@/lib/nostr/verify";
+import { deliverWebhook } from "@/lib/server/webhooks";
 
 export async function POST(request: NextRequest) {
   const agent = authenticateRequest(request);
@@ -113,6 +114,16 @@ export async function POST(request: NextRequest) {
         };
       }
     }
+
+    // Fire webhook notification (async, non-blocking)
+    deliverWebhook("bounty.created", {
+      id: signed.id,
+      pubkey: signed.pubkey,
+      dTag,
+      title: body.title,
+      reward_sats: body.reward_sats,
+      category: body.category,
+    });
 
     return NextResponse.json(
       {
