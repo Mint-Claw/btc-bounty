@@ -31,6 +31,12 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <head>
         <meta name="theme-color" content="#09090b" />
+        <link
+          rel="alternate"
+          type="application/rss+xml"
+          title="BTC Bounty — Open Bounties"
+          href="/api/bounties/feed"
+        />
       </head>
       <body className="bg-zinc-950 text-zinc-100 antialiased">{children}</body>
     </html>
