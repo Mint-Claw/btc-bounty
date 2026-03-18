@@ -18,6 +18,7 @@ import {
 } from "@/lib/nostr/schema";
 import { createInvoice, btcpayHealthCheck } from "@/lib/server/btcpay";
 import { createPayment } from "@/lib/server/payments";
+import { verifyNostrEvent } from "@/lib/nostr/verify";
 
 export async function POST(request: NextRequest) {
   const agent = authenticateRequest(request);
@@ -159,15 +160,21 @@ export async function GET(request: NextRequest) {
 
     const events = await fetchFromRelays(filter);
     let bounties = events
-      .map((e) =>
-        parseBountyEvent({
+      .map((e) => {
+        const parsed = parseBountyEvent({
           id: e.id,
           pubkey: e.pubkey,
           content: e.content,
           tags: e.tags,
           created_at: e.created_at,
-        }),
-      )
+        });
+        if (parsed) {
+          // Cryptographically verify the event signature (NIP-01)
+          const verification = verifyNostrEvent(e, { skipTimestamp: true });
+          (parsed as unknown as Record<string, unknown>).verified = verification.valid;
+        }
+        return parsed;
+      })
       .filter((b) => b !== null)
       .filter((b) => !status || b.status === status)
       .filter((b) => !category || b.category === category)
