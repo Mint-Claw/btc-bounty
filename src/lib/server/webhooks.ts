@@ -22,7 +22,8 @@ export type WebhookEvent =
   | "bounty.expired"
   | "bounty.cancelled"
   | "bounty.payment_received"
-  | "bounty.disputed";
+  | "bounty.disputed"
+  | "bounty.submitted";
 
 export interface WebhookPayload {
   event: WebhookEvent;
