@@ -41,6 +41,21 @@ export default function Home() {
 
       {/* Filters */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-6">
+        {/* Search */}
+        <div className="mb-3">
+          <input
+            type="text"
+            placeholder="Search bounties…"
+            value={filter.search ?? ""}
+            onChange={(e) =>
+              setFilter((f) => ({
+                ...f,
+                search: e.target.value || undefined,
+              }))
+            }
+            className="w-full bg-zinc-900 border border-zinc-700 text-zinc-300 text-sm rounded-lg px-4 py-2 focus:border-orange-500 focus:outline-none placeholder:text-zinc-600"
+          />
+        </div>
         <div className="flex flex-wrap gap-2 items-center">
           {/* Status filter */}
           <select

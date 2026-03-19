@@ -9,6 +9,7 @@ import { NDKFilter } from "@nostr-dev-kit/ndk";
 export type BountyFilter = {
   status?: string;
   category?: string;
+  search?: string;
 };
 
 export function useBounties(ndk: NDK | null, filter?: BountyFilter) {
@@ -43,6 +44,13 @@ export function useBounties(ndk: NDK | null, filter?: BountyFilter) {
           // Client-side filtering
           if (filter?.status && bounty.status !== filter.status) continue;
           if (filter?.category && bounty.category !== filter.category) continue;
+          if (filter?.search) {
+            const q = filter.search.toLowerCase();
+            const matches =
+              bounty.title.toLowerCase().includes(q) ||
+              bounty.description.toLowerCase().includes(q);
+            if (!matches) continue;
+          }
           parsed.push(bounty);
         }
       }
@@ -54,7 +62,7 @@ export function useBounties(ndk: NDK | null, filter?: BountyFilter) {
     } finally {
       setLoading(false);
     }
-  }, [ndk, filter?.status, filter?.category]);
+  }, [ndk, filter?.status, filter?.category, filter?.search]);
 
   useEffect(() => {
     fetchBounties();
