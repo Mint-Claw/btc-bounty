@@ -53,6 +53,21 @@ export async function GET(request: Request) {
       )
       .get() as Record<string, number>;
 
+    // Bounty stats
+    const bountyStats = db
+      .prepare(
+        `SELECT
+          count(*) as total_bounties,
+          count(CASE WHEN status = 'open' THEN 1 END) as open,
+          count(CASE WHEN status = 'claimed' THEN 1 END) as claimed,
+          count(CASE WHEN status = 'completed' THEN 1 END) as completed,
+          count(CASE WHEN status = 'expired' THEN 1 END) as expired,
+          coalesce(sum(reward_sats), 0) as total_reward_sats,
+          coalesce(sum(CASE WHEN status = 'completed' THEN reward_sats ELSE 0 END), 0) as paid_out_sats
+        FROM bounties`
+      )
+      .get() as Record<string, number>;
+
     // Recent activity (last 24h)
     const recentPayments = db
       .prepare(
@@ -62,8 +77,21 @@ export async function GET(request: Request) {
       )
       .get() as { cnt: number };
 
+    const recentBounties = db
+      .prepare(
+        `SELECT count(*) as cnt
+        FROM bounties
+        WHERE created_at > datetime('now', '-24 hours')`
+      )
+      .get() as { cnt: number };
+
     return NextResponse.json({
       timestamp: new Date().toISOString(),
+      bounties: {
+        ...bountyStats,
+        total_reward_btc: (bountyStats.total_reward_sats / 1e8).toFixed(8),
+        paid_out_btc: (bountyStats.paid_out_sats / 1e8).toFixed(8),
+      },
       payments: {
         ...paymentStats,
         total_btc_settled: (paymentStats.total_sats_settled / 1e8).toFixed(8),
@@ -72,6 +100,7 @@ export async function GET(request: Request) {
       toku_listings: tokuStats,
       activity_24h: {
         payments: recentPayments.cnt,
+        bounties: recentBounties.cnt,
       },
     });
   } catch (e) {
