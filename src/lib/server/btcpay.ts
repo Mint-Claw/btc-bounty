@@ -281,7 +281,11 @@ export async function verifyWebhookSignature(
  */
 export function parseWebhookPayload(body: string): WebhookPayload | null {
   try {
-    return JSON.parse(body) as WebhookPayload;
+    const parsed = JSON.parse(body);
+    if (!parsed || typeof parsed.type !== "string") {
+      return null;
+    }
+    return parsed as WebhookPayload;
   } catch {
     return null;
   }
