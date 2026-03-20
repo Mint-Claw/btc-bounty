@@ -82,7 +82,7 @@ export async function POST(
   }
 
   // Verify applicant has applied to this bounty
-  const applicationEvents = await fetchFromRelays({
+  const _applicationEvents = await fetchFromRelays({
     kinds: [BOUNTY_KIND],
     "#e": [bountyEventId],
     authors: [applicantPubkey],

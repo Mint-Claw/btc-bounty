@@ -88,7 +88,7 @@ export async function sendNotification(
 
   try {
     const sk = hexToBytes(botNsec);
-    const botPubkey = getPublicKey(sk);
+    const _botPubkey = getPublicKey(sk);
     const message = buildMessage(payload);
 
     // Encrypt with NIP-04

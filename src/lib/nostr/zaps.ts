@@ -10,7 +10,7 @@
  * Reference: https://github.com/nostr-protocol/nips/blob/master/57.md
  */
 
-import { finalizeEvent, type UnsignedEvent } from "nostr-tools/pure";
+import { type UnsignedEvent } from "nostr-tools/pure";
 import { hasWebLN } from "../lightning/webln";
 
 // ── Types ─────────────────────────────────────────────

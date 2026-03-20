@@ -40,7 +40,7 @@ async function pingRelay(url: string): Promise<RelayStatus> {
         ws.send(JSON.stringify(["REQ", subId, { limit: 1, kinds: [0], authors: ["0".repeat(64)] }]));
       });
 
-      ws.on("message", (data: Buffer | string) => {
+      ws.on("message", (_data: Buffer | string) => {
         const latencyMs = Date.now() - start;
         clearTimeout(timeout);
         // Got a response (likely EOSE) — relay is alive and speaks Nostr

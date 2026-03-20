@@ -11,7 +11,6 @@ import { createPayout } from "@/lib/server/btcpay";
 import {
   getPaymentByBountyId,
   setPayoutInfo,
-  updatePaymentStatus,
 } from "@/lib/server/payments";
 
 export async function POST(

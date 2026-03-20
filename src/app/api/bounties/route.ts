@@ -16,7 +16,7 @@ import {
   parseBountyEvent,
   type BountyCategory,
 } from "@/lib/nostr/schema";
-import { createInvoice, btcpayHealthCheck } from "@/lib/server/btcpay";
+import { createInvoice } from "@/lib/server/btcpay";
 import { createPayment } from "@/lib/server/payments";
 import { verifyNostrEvent } from "@/lib/nostr/verify";
 import { deliverWebhook } from "@/lib/server/webhooks";

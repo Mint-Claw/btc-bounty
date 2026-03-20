@@ -43,7 +43,7 @@ export default function BountyDetail() {
   const [loading, setLoading] = useState(true);
   const [showApply, setShowApply] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
-  const [userPubkey, setUserPubkey] = useState<string | null>(null);
+  const [_userPubkey, setUserPubkey] = useState<string | null>(null);
   const [isPoster, setIsPoster] = useState(false);
 
   // Fetch bounty
