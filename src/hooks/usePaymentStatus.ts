@@ -5,7 +5,7 @@
  * Used by BountyCard to show "⚡ FUNDED" badge.
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface PaymentStatus {
   funded: boolean;
@@ -57,19 +57,15 @@ export function usePaymentStatus(bountyId: string): {
   const [loading, setLoading] = useState(!cache.statuses[bountyId]);
 
   useEffect(() => {
-    // Check cache
-    if (
-      cache.statuses[bountyId] &&
-      Date.now() - cache.fetchedAt < CACHE_TTL_MS
-    ) {
-      setStatus(cache.statuses[bountyId]);
-      setLoading(false);
-      return;
-    }
+    // Check cache — skip fetch if fresh
+    const cached = cache.statuses[bountyId];
+    const isFresh = cached && Date.now() - cache.fetchedAt < CACHE_TTL_MS;
+    if (isFresh) return;
 
-    // Fetch
-    setLoading(true);
+    // Fetch fresh status
+    let cancelled = false;
     fetchStatuses([bountyId]).then((result) => {
+      if (cancelled) return;
       if (result[bountyId]) {
         cache.statuses[bountyId] = result[bountyId];
         cache.fetchedAt = Date.now();
@@ -79,6 +75,7 @@ export function usePaymentStatus(bountyId: string): {
       }
       setLoading(false);
     });
+    return () => { cancelled = true; };
   }, [bountyId]);
 
   return {
@@ -112,18 +109,11 @@ export function useBatchPaymentStatus(bountyIds: string[]): {
       ? bountyIds
       : bountyIds.filter((id) => !cache.statuses[id]);
 
-    if (uncached.length === 0) {
-      const cached: Record<string, PaymentStatus> = {};
-      for (const id of bountyIds) {
-        cached[id] = cache.statuses[id] || { funded: false, paid: false };
-      }
-      setStatuses(cached);
-      setLoading(false);
-      return;
-    }
+    if (uncached.length === 0) return;
 
-    setLoading(true);
+    let cancelled = false;
     fetchStatuses(uncached).then((result) => {
+      if (cancelled) return;
       // Merge into cache
       for (const [id, s] of Object.entries(result)) {
         cache.statuses[id] = s;
@@ -138,6 +128,7 @@ export function useBatchPaymentStatus(bountyIds: string[]): {
       setStatuses(full);
       setLoading(false);
     });
+    return () => { cancelled = true; };
   }, [bountyIds]);
 
   return { statuses, loading };

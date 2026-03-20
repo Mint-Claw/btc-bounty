@@ -55,6 +55,7 @@ export async function GET(request: Request) {
           let ws: import("ws").WebSocket;
 
           try {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
             const { WebSocket } = require("ws") as typeof import("ws");
             ws = new WebSocket(url);
             const subId = `verify_${Date.now()}`;

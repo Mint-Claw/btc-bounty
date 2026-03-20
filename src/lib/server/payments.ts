@@ -58,6 +58,7 @@ function persist(): void {
   try {
     const dir = DATA_DIR;
     if (!existsSync(dir)) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { mkdirSync } = require("fs");
       mkdirSync(dir, { recursive: true });
     }

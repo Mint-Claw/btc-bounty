@@ -30,6 +30,7 @@ async function pingRelay(url: string): Promise<RelayStatus> {
 
     try {
       // Dynamic import — ws is a Node.js-only module
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { WebSocket } = require("ws") as typeof import("ws");
       ws = new WebSocket(url);
 
