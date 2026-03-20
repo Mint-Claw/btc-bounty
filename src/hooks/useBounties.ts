@@ -48,7 +48,7 @@ export function useBounties(ndk: NDK | null, filter?: BountyFilter) {
             const q = filter.search.toLowerCase();
             const matches =
               bounty.title.toLowerCase().includes(q) ||
-              bounty.description.toLowerCase().includes(q);
+              bounty.content.toLowerCase().includes(q);
             if (!matches) continue;
           }
           parsed.push(bounty);

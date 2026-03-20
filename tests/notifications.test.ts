@@ -24,7 +24,7 @@ vi.mock("nostr-tools/utils", () => ({
   hexToBytes: vi.fn().mockReturnValue(new Uint8Array(32)),
 }));
 
-const mockPublish = vi.fn().mockResolvedValue({ successes: 2, failures: 0 });
+const mockPublish = vi.fn().mockResolvedValue(2);
 vi.mock("../src/lib/server/relay-pool", () => ({
   getRelayPool: () => ({ publish: mockPublish }),
 }));
@@ -91,7 +91,7 @@ describe("notifications", () => {
     }));
     const mockPub = vi
       .fn()
-      .mockResolvedValue({ successes: 2, failures: 0 });
+      .mockResolvedValue(2);
     vi.doMock("../src/lib/server/relay-pool", () => ({
       getRelayPool: () => ({ publish: mockPub }),
     }));

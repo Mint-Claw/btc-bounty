@@ -110,10 +110,10 @@ export async function sendNotification(
     const result = await pool.publish(event);
 
     console.log(
-      `[notifications] Sent ${payload.type} DM to ${payload.recipientPubkey.slice(0, 8)}... via ${result.successes}/${result.successes + result.failures} relays`
+      `[notifications] Sent ${payload.type} DM to ${payload.recipientPubkey.slice(0, 8)}... via ${result} relay(s)`
     );
 
-    return { sent: result.successes > 0 };
+    return { sent: result > 0 };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[notifications] Failed to send ${payload.type}: ${msg}`);

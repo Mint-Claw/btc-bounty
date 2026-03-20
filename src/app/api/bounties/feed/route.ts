@@ -52,7 +52,7 @@ export async function GET() {
 
       for (const event of events) {
         const status = getTag(event, "status");
-        if (!status || status === "open") {
+        if (!status || status.toUpperCase() === "OPEN") {
           bounties.push(event);
         }
       }

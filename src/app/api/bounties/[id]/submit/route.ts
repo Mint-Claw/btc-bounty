@@ -74,7 +74,7 @@ export async function POST(
     );
   }
 
-  if (bounty.status === "completed" || bounty.status === "cancelled") {
+  if (bounty.status === "COMPLETED" || bounty.status === "CANCELLED") {
     return NextResponse.json(
       { error: `Bounty is already ${bounty.status}` },
       { status: 409 },
@@ -89,7 +89,7 @@ export async function POST(
   });
 
   // Create submission event
-  const submissionEvent = await signEventServer({
+  const submissionEvent = signEventServer(agent.nsecHex, {
     kind: SUBMISSION_KIND,
     content: JSON.stringify({
       description,
@@ -98,7 +98,7 @@ export async function POST(
     }),
     tags: [
       ["e", bountyEventId, "", "root"], // Reference the bounty
-      ["p", bounty.creatorPubkey], // Tag the bounty creator
+      ["p", bounty.pubkey], // Tag the bounty creator
       ["p", applicantPubkey, "", "submitter"], // Tag the submitter
       ["t", "bounty-submission"],
       ["proof", proofUrl],

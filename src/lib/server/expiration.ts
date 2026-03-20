@@ -38,9 +38,9 @@ export async function expireStale(
   };
 
   // Fetch all open bounties from relays
-  const events = await fetchFromRelays([
-    { kinds: [BOUNTY_KIND], "#status": ["open"] },
-  ]);
+  const events = await fetchFromRelays(
+    { kinds: [BOUNTY_KIND], "#status": ["OPEN"] },
+  );
 
   result.checked = events.length;
 

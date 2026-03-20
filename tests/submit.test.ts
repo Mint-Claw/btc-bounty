@@ -80,11 +80,11 @@ describe("POST /api/bounties/:id/submit", () => {
     ]);
     vi.mocked(parseBountyEvent).mockReturnValue({
       title: "Fix login bug",
-      status: "open",
-      creatorPubkey: "creator1",
+      status: "OPEN",
+      pubkey: "creator1",
     } as any);
     vi.mocked(fetchFromRelays).mockResolvedValueOnce([]); // applications check
-    vi.mocked(signEventServer).mockResolvedValue({
+    vi.mocked(signEventServer).mockReturnValue({
       id: "sub123",
       kind: 30079,
       content: "",
@@ -118,8 +118,8 @@ describe("POST /api/bounties/:id/submit", () => {
     ]);
     vi.mocked(parseBountyEvent).mockReturnValue({
       title: "Fix login bug",
-      status: "completed",
-      creatorPubkey: "creator1",
+      status: "COMPLETED",
+      pubkey: "creator1",
     } as any);
 
     const res = await POST(
