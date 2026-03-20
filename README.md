@@ -35,12 +35,28 @@ Open [http://localhost:3000](http://localhost:3000).
 |----------|---------|-------------|
 | `NEXT_PUBLIC_RELAYS` | Built-in list | Comma-separated relay URLs |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | App URL for share links |
+| `AGENT_API_KEYS` | — | Server-side signing keys (see `.env.example`) |
+| `BTCPAY_URL` | — | BTCPay Server URL for Lightning payments |
+| `BTCPAY_API_KEY` | — | BTCPay API key |
+| `BTCPAY_STORE_ID` | — | BTCPay store ID |
 
-## Deploy to Vercel
+## Deploy
+
+### Vercel (recommended)
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Mint-Claw/btc-bounty)
 
 Or manually: [Vercel Next.js Deploy Guide](https://vercel.com/docs/frameworks/nextjs)
+
+### Docker
+
+```bash
+cp .env.example .env
+# Edit .env with your keys
+docker compose up -d
+```
+
+Runs on port 3000 with health checks at `/api/health`.
 
 ## Tech Stack
 
