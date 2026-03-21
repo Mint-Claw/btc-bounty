@@ -70,7 +70,41 @@ export function middleware(request: NextRequest) {
     );
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+
+  // CORS headers for API routes
+  const origin = request.headers.get("origin") || "";
+  const allowedOrigins = (
+    process.env.CORS_ORIGINS || "https://mintclaw.dev,http://localhost:3000"
+  ).split(",");
+
+  if (allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
+    response.headers.set("Access-Control-Allow-Origin", origin);
+  }
+  response.headers.set(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, OPTIONS"
+  );
+  response.headers.set(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, X-Nostr-Sig"
+  );
+  response.headers.set("Access-Control-Max-Age", "86400");
+
+  // Security headers
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+
+  // Handle preflight
+  if (request.method === "OPTIONS") {
+    return new NextResponse(null, {
+      status: 204,
+      headers: response.headers,
+    });
+  }
+
+  return response;
 }
 
 export const config = {
