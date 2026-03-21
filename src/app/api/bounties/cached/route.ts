@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listCachedBounties, getCachedBounty } from "@/lib/server/db";
+import { listCachedBounties, getCachedBounty, searchCachedBounties } from "@/lib/server/db";
 
 /**
  * GET /api/bounties/cached
@@ -27,10 +27,21 @@ export async function GET(request: Request): Promise<NextResponse> {
       return NextResponse.json(bounty);
     }
 
+    const search = url.searchParams.get("q") || url.searchParams.get("search");
     const status = url.searchParams.get("status") || undefined;
     const category = url.searchParams.get("category") || undefined;
     const limit = parseInt(url.searchParams.get("limit") || "50", 10);
     const offset = parseInt(url.searchParams.get("offset") || "0", 10);
+
+    // Text search takes priority
+    if (search) {
+      const bounties = searchCachedBounties(search, { status, limit });
+      return NextResponse.json({
+        bounties,
+        count: bounties.length,
+        query: search,
+      });
+    }
 
     const bounties = listCachedBounties({ status, category, limit, offset });
 

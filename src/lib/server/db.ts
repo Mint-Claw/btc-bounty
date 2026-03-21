@@ -389,6 +389,48 @@ export function listCachedBounties(options?: {
   ).all(...params, limit, offset) as BountyEventRow[];
 }
 
+export function searchCachedBounties(query: string, options?: {
+  status?: string;
+  limit?: number;
+}): BountyEventRow[] {
+  const db = getDB();
+  const conditions: string[] = ["(title LIKE ? OR summary LIKE ? OR content LIKE ?)"];
+  const searchTerm = `%${query}%`;
+  const params: unknown[] = [searchTerm, searchTerm, searchTerm];
+
+  if (options?.status) {
+    conditions.push("status = ?");
+    params.push(options.status);
+  }
+
+  const where = `WHERE ${conditions.join(" AND ")}`;
+  const limit = options?.limit || 20;
+
+  return db.prepare(
+    `SELECT * FROM bounty_events ${where} ORDER BY created_at DESC LIMIT ?`
+  ).all(...params, limit) as BountyEventRow[];
+}
+
+export function getBountyStats(): {
+  total: number;
+  open: number;
+  in_progress: number;
+  completed: number;
+  total_sats: number;
+} {
+  const db = getDB();
+  const row = db.prepare(`
+    SELECT
+      COUNT(*) as total,
+      COALESCE(SUM(CASE WHEN status = 'OPEN' THEN 1 ELSE 0 END), 0) as open,
+      COALESCE(SUM(CASE WHEN status = 'IN_PROGRESS' THEN 1 ELSE 0 END), 0) as in_progress,
+      COALESCE(SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END), 0) as completed,
+      COALESCE(SUM(reward_sats), 0) as total_sats
+    FROM bounty_events
+  `).get() as { total: number; open: number; in_progress: number; completed: number; total_sats: number };
+  return row;
+}
+
 export function updateBountyStatus(dTag: string, status: string, winnerPubkey?: string): boolean {
   const db = getDB();
   const result = db.prepare(`
