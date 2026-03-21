@@ -102,6 +102,36 @@ function migrate(db: Database.Database): void {
       INSERT INTO schema_version (version) VALUES (1);
     `);
   }
+
+  if (current.v < 2) {
+    db.exec(`
+      -- Local cache of bounty Nostr events (reduces relay dependency)
+      CREATE TABLE IF NOT EXISTS bounty_events (
+        id TEXT PRIMARY KEY,          -- Nostr event ID (hex)
+        d_tag TEXT NOT NULL UNIQUE,   -- Parameterized replaceable d-tag
+        pubkey TEXT NOT NULL,         -- Creator pubkey (hex)
+        kind INTEGER NOT NULL,        -- Event kind (30402)
+        title TEXT NOT NULL,
+        summary TEXT,
+        content TEXT,
+        reward_sats INTEGER NOT NULL,
+        status TEXT DEFAULT 'OPEN',   -- OPEN, IN_PROGRESS, COMPLETED, CANCELLED
+        category TEXT DEFAULT 'other',
+        lightning TEXT,
+        winner_pubkey TEXT,
+        tags_json TEXT,               -- Full tags array as JSON
+        created_at INTEGER NOT NULL,  -- Unix timestamp
+        cached_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_bounty_events_status ON bounty_events(status);
+      CREATE INDEX IF NOT EXISTS idx_bounty_events_pubkey ON bounty_events(pubkey);
+      CREATE INDEX IF NOT EXISTS idx_bounty_events_category ON bounty_events(category);
+
+      INSERT INTO schema_version (version) VALUES (2);
+    `);
+  }
 }
 
 // ─── Toku Listing Queries ────────────────────────────────────
@@ -270,4 +300,100 @@ export function touchApiKeyUsage(id: string): void {
   db.prepare(
     "UPDATE api_keys SET last_used_at = datetime('now') WHERE id = ?"
   ).run(id);
+}
+
+// ─── Bounty Event Cache ──────────────────────────────────────
+
+export interface BountyEventRow {
+  id: string;
+  d_tag: string;
+  pubkey: string;
+  kind: number;
+  title: string;
+  summary: string | null;
+  content: string | null;
+  reward_sats: number;
+  status: string;
+  category: string;
+  lightning: string | null;
+  winner_pubkey: string | null;
+  tags_json: string | null;
+  created_at: number;
+  cached_at: string;
+  updated_at: string;
+}
+
+export function cacheBountyEvent(event: {
+  id: string;
+  dTag: string;
+  pubkey: string;
+  kind: number;
+  title: string;
+  summary?: string;
+  content?: string;
+  rewardSats: number;
+  status?: string;
+  category?: string;
+  lightning?: string;
+  winnerPubkey?: string;
+  tags?: string[][];
+  createdAt: number;
+}): void {
+  const db = getDB();
+  db.prepare(`
+    INSERT OR REPLACE INTO bounty_events (id, d_tag, pubkey, kind, title, summary, content,
+      reward_sats, status, category, lightning, winner_pubkey, tags_json, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    event.id, event.dTag, event.pubkey, event.kind,
+    event.title, event.summary || null, event.content || null,
+    event.rewardSats, event.status || "OPEN", event.category || "other",
+    event.lightning || null, event.winnerPubkey || null,
+    event.tags ? JSON.stringify(event.tags) : null,
+    event.createdAt,
+  );
+}
+
+export function getCachedBounty(dTag: string): BountyEventRow | undefined {
+  const db = getDB();
+  return db.prepare(
+    "SELECT * FROM bounty_events WHERE d_tag = ?"
+  ).get(dTag) as BountyEventRow | undefined;
+}
+
+export function listCachedBounties(options?: {
+  status?: string;
+  category?: string;
+  limit?: number;
+  offset?: number;
+}): BountyEventRow[] {
+  const db = getDB();
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (options?.status) {
+    conditions.push("status = ?");
+    params.push(options.status);
+  }
+  if (options?.category) {
+    conditions.push("category = ?");
+    params.push(options.category);
+  }
+
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const limit = options?.limit || 50;
+  const offset = options?.offset || 0;
+
+  return db.prepare(
+    `SELECT * FROM bounty_events ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`
+  ).all(...params, limit, offset) as BountyEventRow[];
+}
+
+export function updateBountyStatus(dTag: string, status: string, winnerPubkey?: string): boolean {
+  const db = getDB();
+  const result = db.prepare(`
+    UPDATE bounty_events SET status = ?, winner_pubkey = ?, updated_at = datetime('now')
+    WHERE d_tag = ?
+  `).run(status, winnerPubkey || null, dTag);
+  return result.changes > 0;
 }
