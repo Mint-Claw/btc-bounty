@@ -20,6 +20,7 @@ import { createInvoice } from "@/lib/server/btcpay";
 import { createPayment } from "@/lib/server/payments";
 import { verifyNostrEvent } from "@/lib/nostr/verify";
 import { deliverWebhook } from "@/lib/server/webhooks";
+import { CreateBountySchema, validateBody } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
   const agent = authenticateRequest(request);
@@ -37,26 +38,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { title, summary, content, rewardSats, category, lightning, tags, expiry, image, escrow } =
-    body as {
-      title?: string;
-      summary?: string;
-      content?: string;
-      rewardSats?: number;
-      category?: string;
-      lightning?: string;
-      tags?: string[];
-      expiry?: number;
-      image?: string;
-      escrow?: boolean;
-    };
-
-  if (!title || !content || !rewardSats || !lightning) {
+  const validation = validateBody(CreateBountySchema, body);
+  if (validation.error) {
     return NextResponse.json(
-      { error: "Missing required fields: title, content, rewardSats, lightning" },
+      { error: validation.error, details: validation.details },
       { status: 400 },
     );
   }
+
+  const data = validation.data!;
+  const { title, summary, content, rewardSats, category, lightning, tags, expiry, image, escrow } =
+    data;
 
   const dTag = crypto.randomUUID();
   const eventTags = buildBountyTags({
