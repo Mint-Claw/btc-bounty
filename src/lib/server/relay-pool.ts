@@ -251,6 +251,16 @@ class RelayPool {
   }
 
   /**
+   * Ensure a specific relay is connected. Used for connectivity testing.
+   */
+  async ensureConnected(url: string): Promise<void> {
+    const existing = this.connections.get(url);
+    if (existing) return;
+    const relay = await this.connectRelay(url);
+    if (!relay) throw new Error(`Failed to connect to ${url}`);
+  }
+
+  /**
    * Close all connections.
    */
   async close(): Promise<void> {
