@@ -2,20 +2,13 @@ import { NextResponse } from "next/server";
 import { getCachedBounty, type BountyEventRow } from "@/lib/server/db";
 
 /**
- * GET /api/bounties/:dTag
+ * GET /api/bounties/:id
  *
- * Get enriched bounty detail by d-tag.
- * Returns cached data with computed fields (age, reward in BTC, etc.)
+ * Get enriched bounty detail by d-tag (id).
+ * Returns cached data with computed fields.
  */
 
-interface EnrichedBounty extends BountyEventRow {
-  reward_btc: string;
-  age_hours: number;
-  age_label: string;
-  tags: string[][] | null;
-}
-
-function enrichBounty(row: BountyEventRow): EnrichedBounty {
+function enrichBounty(row: BountyEventRow) {
   const now = Math.floor(Date.now() / 1000);
   const ageSeconds = now - row.created_at;
   const ageHours = Math.floor(ageSeconds / 3600);
@@ -37,19 +30,17 @@ function enrichBounty(row: BountyEventRow): EnrichedBounty {
 
 export async function GET(
   _request: Request,
-  { params }: { params: Promise<{ dTag: string }> },
+  { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
   try {
-    const { dTag } = await params;
-
-    const bounty = getCachedBounty(dTag);
+    const { id } = await params;
+    const bounty = getCachedBounty(id);
     if (!bounty) {
       return NextResponse.json(
-        { error: "Bounty not found", d_tag: dTag },
+        { error: "Bounty not found", d_tag: id },
         { status: 404 },
       );
     }
-
     return NextResponse.json(enrichBounty(bounty));
   } catch (error) {
     console.error("Failed to get bounty detail:", error);
