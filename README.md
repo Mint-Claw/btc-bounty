@@ -14,8 +14,8 @@ Bitcoin-native bounty board built on NOSTR. Post bounties, apply for work, pay v
 
 ## Prerequisites
 
-- Node.js 18+
-- pnpm
+- Node.js 20+
+- npm
 - A NIP-07 browser extension ([Alby](https://getalby.com) recommended)
 
 ## Setup
@@ -23,8 +23,8 @@ Bitcoin-native bounty board built on NOSTR. Post bounties, apply for work, pay v
 ```bash
 git clone https://github.com/Mint-Claw/btc-bounty.git
 cd btc-bounty
-pnpm install
-pnpm dev
+npm install
+npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
