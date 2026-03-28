@@ -6,12 +6,24 @@ import RelayStatus from "@/components/RelayStatus";
 import { useBounties, useNDK, type BountyFilter } from "@/hooks/useBounties";
 import type { BountyStatus, BountyCategory } from "@/lib/nostr/schema";
 import Link from "next/link";
+import { BountySkeletonList } from "@/components/BountySkeleton";
 
 const STATUSES: BountyStatus[] = ["OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
 const CATEGORIES: BountyCategory[] = ["code", "design", "writing", "research", "other"];
 
 function StatsBar({ bounties, loading }: { bounties: { status: string; rewardSats: number }[]; loading: boolean }) {
-  if (loading) return null;
+  if (loading) {
+    return (
+      <div className="grid grid-cols-3 gap-4 max-w-4xl mx-auto px-4 sm:px-6 py-6">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 text-center animate-pulse">
+            <div className="h-7 bg-zinc-800 rounded w-16 mx-auto mb-2" />
+            <div className="h-3 bg-zinc-800/60 rounded w-20 mx-auto" />
+          </div>
+        ))}
+      </div>
+    );
+  }
   const open = bounties.filter((b) => b.status === "OPEN").length;
   const totalSats = bounties.reduce((sum, b) => sum + (b.status === "OPEN" ? b.rewardSats : 0), 0);
   const completed = bounties.filter((b) => b.status === "COMPLETED").length;
@@ -164,11 +176,15 @@ export default function Home() {
         </div>
 
         {!connected && (
-          <div className="text-center py-12 text-zinc-500">
-            <p className="text-lg mb-2">Connecting to NOSTR relays...</p>
-            <p className="text-sm">This may take a few seconds.</p>
+          <div className="space-y-4">
+            <div className="text-center py-4 text-zinc-500">
+              <p className="text-sm">Connecting to NOSTR relays...</p>
+            </div>
+            <BountySkeletonList count={4} />
           </div>
         )}
+
+        {connected && loading && <BountySkeletonList count={4} />}
 
         {connected && error && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-4">

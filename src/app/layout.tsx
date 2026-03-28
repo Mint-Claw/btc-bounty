@@ -30,7 +30,8 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
-        <meta name="theme-color" content="#09090b" />
+        <meta name="theme-color" content="#f97316" />
+        <link rel="manifest" href="/manifest.json" />
         <link
           rel="alternate"
           type="application/rss+xml"

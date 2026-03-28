@@ -1,3 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /api/admin/
+
 Sitemap: https://btc-bounty.vercel.app/sitemap.xml
