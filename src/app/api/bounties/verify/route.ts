@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
  *
  * Verify a bounty event exists on configured Nostr relays.
  * Useful for confirming that a posted bounty actually propagated.
+ * Uses native Node.js WebSocket (Node 22+).
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -52,23 +53,25 @@ export async function GET(request: Request) {
             resolve({ relay: url, found: false, error: "timeout" });
           }, 8000);
 
-          let ws: import("ws").WebSocket;
+          let ws: WebSocket;
 
           try {
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const { WebSocket } = require("ws") as typeof import("ws");
             ws = new WebSocket(url);
             const subId = `verify_${Date.now()}`;
 
-            ws.on("open", () => {
+            ws.addEventListener("open", () => {
               ws.send(
                 JSON.stringify(["REQ", subId, { ids: [eventId], limit: 1 }])
               );
             });
 
-            ws.on("message", (data: Buffer | string) => {
+            ws.addEventListener("message", (evt) => {
               try {
-                const msg = JSON.parse(data.toString());
+                const msg = JSON.parse(
+                  typeof evt.data === "string"
+                    ? evt.data
+                    : evt.data.toString()
+                );
                 if (msg[0] === "EVENT" && msg[1] === subId && msg[2]) {
                   clearTimeout(timeout);
                   ws.close();
@@ -94,9 +97,9 @@ export async function GET(request: Request) {
               }
             });
 
-            ws.on("error", (err: Error) => {
+            ws.addEventListener("error", () => {
               clearTimeout(timeout);
-              resolve({ relay: url, found: false, error: err.message });
+              resolve({ relay: url, found: false, error: "connection failed" });
             });
           } catch (err) {
             clearTimeout(timeout);

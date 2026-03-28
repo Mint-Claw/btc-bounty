@@ -140,9 +140,13 @@ describe("API Routes", () => {
       const response = await GET();
       const body = await response.json();
 
-      // Should return relay status info
+      // Should return relay status info with expected structure
       expect(body).toBeDefined();
-    });
+      expect(body).toHaveProperty("timestamp");
+      expect(body).toHaveProperty("total");
+      expect(body).toHaveProperty("relays");
+      expect(Array.isArray(body.relays)).toBe(true);
+    }, 15_000); // Allow time for real WebSocket connections in test
   });
 });
 

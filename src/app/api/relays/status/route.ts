@@ -10,6 +10,7 @@ interface RelayStatus {
 
 /**
  * Ping a single Nostr relay via WebSocket handshake.
+ * Uses the native Node.js WebSocket API (available in Node 22+).
  * Sends a REQ for a nonexistent event to verify protocol support.
  * Times out after 5 seconds.
  */
@@ -26,21 +27,24 @@ async function pingRelay(url: string): Promise<RelayStatus> {
       resolve({ url, connected: false, latencyMs: null, error: "timeout" });
     }, 5000);
 
-    let ws: import("ws").WebSocket;
+    let ws: WebSocket;
 
     try {
-      // Dynamic import — ws is a Node.js-only module
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { WebSocket } = require("ws") as typeof import("ws");
       ws = new WebSocket(url);
 
-      ws.on("open", () => {
+      ws.addEventListener("open", () => {
         // Send a minimal REQ to verify Nostr protocol
         const subId = `ping_${Date.now()}`;
-        ws.send(JSON.stringify(["REQ", subId, { limit: 1, kinds: [0], authors: ["0".repeat(64)] }]));
+        ws.send(
+          JSON.stringify([
+            "REQ",
+            subId,
+            { limit: 1, kinds: [0], authors: ["0".repeat(64)] },
+          ])
+        );
       });
 
-      ws.on("message", (_data: Buffer | string) => {
+      ws.addEventListener("message", () => {
         const latencyMs = Date.now() - start;
         clearTimeout(timeout);
         // Got a response (likely EOSE) — relay is alive and speaks Nostr
@@ -53,13 +57,13 @@ async function pingRelay(url: string): Promise<RelayStatus> {
         resolve({ url, connected: true, latencyMs });
       });
 
-      ws.on("error", (err: Error) => {
+      ws.addEventListener("error", () => {
         clearTimeout(timeout);
         resolve({
           url,
           connected: false,
           latencyMs: null,
-          error: err.message,
+          error: "connection failed",
         });
       });
     } catch (err) {
