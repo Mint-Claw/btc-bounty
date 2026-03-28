@@ -10,13 +10,39 @@ import Link from "next/link";
 const STATUSES: BountyStatus[] = ["OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
 const CATEGORIES: BountyCategory[] = ["code", "design", "writing", "research", "other"];
 
+function StatsBar({ bounties, loading }: { bounties: { status: string; rewardSats: number }[]; loading: boolean }) {
+  if (loading) return null;
+  const open = bounties.filter((b) => b.status === "OPEN").length;
+  const totalSats = bounties.reduce((sum, b) => sum + (b.status === "OPEN" ? b.rewardSats : 0), 0);
+  const completed = bounties.filter((b) => b.status === "COMPLETED").length;
+
+  return (
+    <div className="grid grid-cols-3 gap-4 max-w-4xl mx-auto px-4 sm:px-6 py-6">
+      <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 text-center">
+        <div className="text-2xl font-bold text-orange-400">{open}</div>
+        <div className="text-xs text-zinc-500 mt-1">Open Bounties</div>
+      </div>
+      <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 text-center">
+        <div className="text-2xl font-bold text-orange-400">
+          ⚡ {totalSats >= 1_000_000 ? `${(totalSats / 1_000_000).toFixed(1)}M` : totalSats >= 1_000 ? `${Math.round(totalSats / 1_000)}K` : totalSats}
+        </div>
+        <div className="text-xs text-zinc-500 mt-1">Sats Available</div>
+      </div>
+      <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 text-center">
+        <div className="text-2xl font-bold text-green-400">{completed}</div>
+        <div className="text-xs text-zinc-500 mt-1">Completed</div>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const { ndk, connected } = useNDK();
   const [filter, setFilter] = useState<BountyFilter>({});
   const { bounties, loading, error, refetch } = useBounties(ndk, filter);
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-100">
+    <main className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
       {/* Header */}
       <header className="border-b border-zinc-800 px-4 sm:px-6 py-3 sm:py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
@@ -30,6 +56,12 @@ export default function Home() {
           <div className="flex items-center gap-3">
             <RelayStatus />
             <Link
+              href="/admin"
+              className="text-sm text-zinc-500 hover:text-zinc-300 transition hidden sm:inline"
+            >
+              Admin
+            </Link>
+            <Link
               href="/post"
               className="px-4 py-2 bg-orange-500 text-black rounded-lg font-semibold text-sm hover:bg-orange-400 transition"
             >
@@ -39,8 +71,24 @@ export default function Home() {
         </div>
       </header>
 
+      {/* Hero — only when no filters active */}
+      {!filter.status && !filter.category && !filter.search && (
+        <div className="border-b border-zinc-800/50 bg-gradient-to-b from-zinc-900/50 to-transparent">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-8 pb-2 text-center">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-2">
+              Post work. Get paid in <span className="text-orange-400">sats</span>.
+            </h2>
+            <p className="text-zinc-400 text-sm sm:text-base max-w-lg mx-auto">
+              Decentralized bounties powered by NOSTR identity and Lightning payments.
+              No accounts, no middlemen.
+            </p>
+          </div>
+          <StatsBar bounties={bounties} loading={loading} />
+        </div>
+      )}
+
       {/* Filters */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-6">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-6 w-full">
         {/* Search */}
         <div className="mb-3">
           <input
@@ -105,7 +153,7 @@ export default function Home() {
       </div>
 
       {/* Bounty List */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex-1 w-full">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-zinc-300">
             {filter.status || "All"} Bounties
@@ -154,6 +202,27 @@ export default function Home() {
           ))}
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="border-t border-zinc-800 mt-auto">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-600">
+          <div className="flex items-center gap-2">
+            <span>⚡</span>
+            <span>BTC-Bounty — built on NOSTR + Lightning</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link href="/api/bounties/feed" className="hover:text-zinc-400 transition">
+              RSS Feed
+            </Link>
+            <Link href="/api/docs" className="hover:text-zinc-400 transition">
+              API Docs
+            </Link>
+            <Link href="/api/health" className="hover:text-zinc-400 transition">
+              Status
+            </Link>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
