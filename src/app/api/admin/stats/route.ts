@@ -29,7 +29,7 @@ export async function GET(request: Request) {
           count(CASE WHEN status = 'pending' THEN 1 END) as pending,
           count(CASE WHEN status = 'expired' THEN 1 END) as expired,
           coalesce(sum(CASE WHEN status = 'settled' THEN amount_sats ELSE 0 END), 0) as total_sats_settled
-        FROM payments`
+        FROM bounty_payments`
       )
       .get() as Record<string, number>;
 
@@ -58,13 +58,13 @@ export async function GET(request: Request) {
       .prepare(
         `SELECT
           count(*) as total_bounties,
-          count(CASE WHEN status = 'open' THEN 1 END) as open,
-          count(CASE WHEN status = 'claimed' THEN 1 END) as claimed,
-          count(CASE WHEN status = 'completed' THEN 1 END) as completed,
-          count(CASE WHEN status = 'expired' THEN 1 END) as expired,
+          count(CASE WHEN status = 'OPEN' THEN 1 END) as open,
+          count(CASE WHEN status = 'IN_PROGRESS' THEN 1 END) as claimed,
+          count(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed,
+          count(CASE WHEN status = 'CANCELLED' THEN 1 END) as expired,
           coalesce(sum(reward_sats), 0) as total_reward_sats,
-          coalesce(sum(CASE WHEN status = 'completed' THEN reward_sats ELSE 0 END), 0) as paid_out_sats
-        FROM bounties`
+          coalesce(sum(CASE WHEN status = 'COMPLETED' THEN reward_sats ELSE 0 END), 0) as paid_out_sats
+        FROM bounty_events`
       )
       .get() as Record<string, number>;
 
@@ -72,7 +72,7 @@ export async function GET(request: Request) {
     const recentPayments = db
       .prepare(
         `SELECT count(*) as cnt
-        FROM payments
+        FROM bounty_payments
         WHERE created_at > datetime('now', '-24 hours')`
       )
       .get() as { cnt: number };
@@ -80,7 +80,7 @@ export async function GET(request: Request) {
     const recentBounties = db
       .prepare(
         `SELECT count(*) as cnt
-        FROM bounties
+        FROM bounty_events
         WHERE created_at > datetime('now', '-24 hours')`
       )
       .get() as { cnt: number };

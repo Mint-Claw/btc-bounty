@@ -22,14 +22,21 @@ interface HealthResponse {
 
 interface StatsResponse {
   bounties: {
-    total: number;
+    total_bounties: number;
     open: number;
-    assigned: number;
+    claimed: number;
     completed: number;
-    cancelled: number;
+    expired: number;
+    total_reward_sats: number;
+    paid_out_sats: number;
+    total_reward_btc: string;
+    paid_out_btc: string;
   };
-  totalRewardSats: number;
-  avgRewardSats: number;
+  payments: Record<string, number | string>;
+  api_keys: Record<string, number>;
+  toku_listings: Record<string, number>;
+  activity_24h: { payments: number; bounties: number };
+  timestamp: string;
 }
 
 export default function AdminDashboard() {
@@ -42,16 +49,27 @@ export default function AdminDashboard() {
     setLoading(true);
     setError(null);
     try {
+      const fetchWithTimeout = (url: string, ms = 8000) => {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), ms);
+        return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(timer));
+      };
       const [healthRes, statsRes] = await Promise.allSettled([
-        fetch("/api/admin/relay-status"),
-        fetch("/api/admin/stats"),
+        fetchWithTimeout("/api/admin/relay-status"),
+        fetchWithTimeout("/api/admin/stats"),
       ]);
 
       if (healthRes.status === "fulfilled" && healthRes.value.ok) {
-        setHealth(await healthRes.value.json());
+        const data = await healthRes.value.json();
+        if (data && data.status && data.relays) {
+          setHealth(data);
+        }
       }
       if (statsRes.status === "fulfilled" && statsRes.value.ok) {
-        setStats(await statsRes.value.json());
+        const data = await statsRes.value.json();
+        if (data && data.bounties) {
+          setStats(data);
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to fetch data");
@@ -100,15 +118,15 @@ export default function AdminDashboard() {
           <section className="mb-8">
             <h2 className="text-lg font-semibold mb-4">📊 Bounty Stats</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <StatCard label="Total Bounties" value={stats.bounties.total} />
+              <StatCard label="Total Bounties" value={stats.bounties.total_bounties} />
               <StatCard
                 label="Open"
                 value={stats.bounties.open}
                 color="green"
               />
               <StatCard
-                label="Assigned"
-                value={stats.bounties.assigned}
+                label="In Progress"
+                value={stats.bounties.claimed}
                 color="yellow"
               />
               <StatCard
@@ -120,11 +138,11 @@ export default function AdminDashboard() {
             <div className="grid grid-cols-2 gap-4 mt-4">
               <StatCard
                 label="Total Rewards"
-                value={formatSats(stats.totalRewardSats)}
+                value={formatSats(stats.bounties.total_reward_sats)}
               />
               <StatCard
-                label="Avg Reward"
-                value={formatSats(stats.avgRewardSats)}
+                label="Paid Out"
+                value={formatSats(stats.bounties.paid_out_sats)}
               />
             </div>
           </section>
@@ -144,7 +162,7 @@ export default function AdminDashboard() {
                       : "bg-red-900 text-red-300"
                 }`}
               >
-                {health.status.toUpperCase()}
+                {(health.status ?? "unknown").toUpperCase()}
               </span>
             </div>
             <div className="space-y-3">
