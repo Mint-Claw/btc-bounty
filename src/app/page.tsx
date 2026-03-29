@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import BountyCard from "@/components/BountyCard";
 import RelayStatus from "@/components/RelayStatus";
 import { useBounties, useNDK, type BountyFilter } from "@/hooks/useBounties";
@@ -52,6 +52,22 @@ export default function Home() {
   const { ndk, connected } = useNDK();
   const [filter, setFilter] = useState<BountyFilter>({});
   const { bounties, loading, error, refetch } = useBounties(ndk, filter);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // Cmd+K / Ctrl+K to focus search
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+      if (e.key === "Escape") {
+        searchRef.current?.blur();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
@@ -102,8 +118,9 @@ export default function Home() {
       {/* Filters */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-6 w-full">
         {/* Search */}
-        <div className="mb-3">
+        <div className="mb-3 relative">
           <input
+            ref={searchRef}
             type="text"
             placeholder="Search bounties…"
             value={filter.search ?? ""}
@@ -113,8 +130,11 @@ export default function Home() {
                 search: e.target.value || undefined,
               }))
             }
-            className="w-full bg-zinc-900 border border-zinc-700 text-zinc-300 text-sm rounded-lg px-4 py-2 focus:border-orange-500 focus:outline-none placeholder:text-zinc-600"
+            className="w-full bg-zinc-900 border border-zinc-700 text-zinc-300 text-sm rounded-lg px-4 py-2 pr-16 focus:border-orange-500 focus:outline-none placeholder:text-zinc-600"
           />
+          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:inline-flex items-center gap-0.5 text-[10px] text-zinc-600 bg-zinc-800 border border-zinc-700 rounded px-1.5 py-0.5 font-mono">
+            ⌘K
+          </kbd>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           {/* Status filter */}

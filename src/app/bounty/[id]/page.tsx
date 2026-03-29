@@ -181,6 +181,24 @@ export default function BountyDetail() {
           </div>
         )}
 
+        {/* Expiry */}
+        {bounty.expiry && (
+          <div className={`border rounded-lg p-4 mb-8 bg-zinc-900/50 ${
+            bounty.expiry * 1000 < Date.now()
+              ? "border-red-500/30 bg-red-500/5"
+              : "border-zinc-800"
+          }`}>
+            <h3 className="text-sm font-semibold text-zinc-400 mb-1 uppercase tracking-wide">
+              {bounty.expiry * 1000 < Date.now() ? "⏰ Expired" : "⏳ Expires"}
+            </h3>
+            <span className={bounty.expiry * 1000 < Date.now() ? "text-red-400" : "text-zinc-300"}>
+              {new Date(bounty.expiry * 1000).toLocaleDateString(undefined, {
+                year: "numeric", month: "long", day: "numeric"
+              })}
+            </span>
+          </div>
+        )}
+
         {/* Lightning Address */}
         {bounty.lightning && (
           <div className="border border-zinc-800 rounded-lg p-4 mb-8 bg-zinc-900/50">
@@ -253,6 +271,22 @@ export default function BountyDetail() {
               winnerLightning={winnerApp?.lightning}
             />
           )}
+
+          {/* Share */}
+          <button
+            onClick={() => {
+              const url = window.location.href;
+              if (navigator.share) {
+                navigator.share({ title: bounty.title, url });
+              } else {
+                navigator.clipboard.writeText(url);
+                alert("Link copied to clipboard!");
+              }
+            }}
+            className="px-6 py-3 border border-zinc-700 text-zinc-300 rounded-lg hover:border-zinc-500 transition"
+          >
+            📋 Share
+          </button>
 
           {/* Nostrudel link */}
           <a
