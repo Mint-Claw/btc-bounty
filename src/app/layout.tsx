@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     siteName: "BTC-Bounty",
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "BTC-Bounty",
     description: "Bitcoin-native bounties on NOSTR. Post work, get paid in sats.",
   },

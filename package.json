@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "smoke": "bash scripts/smoke-test.sh",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "typecheck": "tsc --noEmit -p tsconfig.check.json"
   },
   "dependencies": {
     "@nostr-dev-kit/ndk": "^3.0.3",
