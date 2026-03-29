@@ -136,17 +136,39 @@ describe("API Routes", () => {
 
   describe("GET /api/relays/status", () => {
     it("returns relay connection status", async () => {
-      const { GET } = await import("@/app/api/relays/status/route");
-      const response = await GET();
-      const body = await response.json();
+      // Mock WebSocket to avoid real connections + ERR_INVALID_ARG_TYPE errors
+      const origWS = globalThis.WebSocket;
+      globalThis.WebSocket = class MockWebSocket {
+        addEventListener(event: string, cb: (...args: unknown[]) => void) {
+          if (event === "message") {
+            // Simulate immediate relay response
+            setTimeout(() => cb(new MessageEvent("message", { data: '["EOSE","ping"]' })), 10);
+          }
+          if (event === "open") {
+            setTimeout(() => cb(new Event("open")), 5);
+          }
+        }
+        send() {}
+        close() {}
+      } as unknown as typeof WebSocket;
 
-      // Should return relay status info with expected structure
-      expect(body).toBeDefined();
-      expect(body).toHaveProperty("timestamp");
-      expect(body).toHaveProperty("total");
-      expect(body).toHaveProperty("relays");
-      expect(Array.isArray(body.relays)).toBe(true);
-    }, 15_000); // Allow time for real WebSocket connections in test
+      try {
+        // Re-import to pick up mocked WebSocket
+        const mod = await import("@/app/api/relays/status/route");
+        const response = await mod.GET();
+        const body = await response.json();
+
+        expect(body).toBeDefined();
+        expect(body).toHaveProperty("timestamp");
+        expect(body).toHaveProperty("total");
+        expect(body).toHaveProperty("relays");
+        expect(Array.isArray(body.relays)).toBe(true);
+        // With mock, all relays should be "connected"
+        expect(body.connected).toBe(body.total);
+      } finally {
+        globalThis.WebSocket = origWS;
+      }
+    }, 10_000);
   });
 });
 
