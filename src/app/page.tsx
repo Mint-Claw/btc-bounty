@@ -7,6 +7,7 @@ import { useBounties, useNDK, type BountyFilter } from "@/hooks/useBounties";
 import type { BountyStatus, BountyCategory } from "@/lib/nostr/schema";
 import Link from "next/link";
 import { BountySkeletonList } from "@/components/BountySkeleton";
+import { DEMO_BOUNTIES } from "@/lib/demo-bounties";
 
 const STATUSES: BountyStatus[] = ["OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
 const CATEGORIES: BountyCategory[] = ["code", "design", "writing", "research", "other"];
@@ -218,13 +219,33 @@ export default function Home() {
           </div>
         )}
 
-        {connected && !loading && bounties.length === 0 && (
+        {connected && !loading && bounties.length === 0 && !filter.status && !filter.category && !filter.search && (
+          <>
+            <div className="text-center py-4 text-zinc-500">
+              <p className="text-sm">
+                No live bounties yet.{" "}
+                <Link href="/post" className="text-orange-400 hover:underline">
+                  Post the first one
+                </Link>
+                , or check out these examples:
+              </p>
+            </div>
+            <div className="space-y-3 opacity-75">
+              {DEMO_BOUNTIES.map((bounty) => (
+                <BountyCard key={bounty.id} bounty={bounty} />
+              ))}
+            </div>
+            <p className="text-center text-xs text-zinc-600 mt-4">
+              ↑ Sample bounties for demonstration
+            </p>
+          </>
+        )}
+
+        {connected && !loading && bounties.length === 0 && (filter.status || filter.category || filter.search) && (
           <div className="text-center py-12 text-zinc-500">
-            <p className="text-lg mb-2">No bounties found</p>
+            <p className="text-lg mb-2">No bounties match your filters</p>
             <p className="text-sm">
-              {filter.status || filter.category
-                ? "Try clearing your filters, or "
-                : "Be the first — "}
+              Try clearing your filters, or{" "}
               <Link href="/post" className="text-orange-400 hover:underline">
                 post a bounty
               </Link>
