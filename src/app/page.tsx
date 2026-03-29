@@ -250,7 +250,7 @@ export default function Home() {
             <Link href="/api/bounties/feed" className="hover:text-zinc-400 transition">
               RSS Feed
             </Link>
-            <Link href="/api/docs" className="hover:text-zinc-400 transition">
+            <Link href="/docs" className="hover:text-zinc-400 transition">
               API Docs
             </Link>
             <Link href="/api/health" className="hover:text-zinc-400 transition">
