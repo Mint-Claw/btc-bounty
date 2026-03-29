@@ -8,9 +8,26 @@ Bitcoin-native bounty board built on NOSTR. Post bounties, apply for work, pay v
 - **Apply for Work** — Reply to bounties via kind:1 events with NIP-07 signing
 - **Mark Complete** — Select a winner and update bounty status on-chain
 - **Pay via Lightning** — WebLN auto-pay (Alby) or manual Lightning address
+- **BTCPay Server** — Escrow funding and automated payouts via Lightning
 - **NOSTR Profiles** — NIP-01 kind:0 profile display with avatars
+- **NIP-57 Zaps** — Tip bounty posters directly
+- **NIP-04 DMs** — Encrypted notification delivery
 - **Share to Feed** — Opt-in kind:1 announcement when posting bounties
+- **Admin Dashboard** — Stats, relay health, bounty management
+- **RSS Feed** — `/api/bounties/feed` for open bounties
+- **Search & Filters** — By status, category, text (⌘K shortcut)
+- **Demo Mode** — Sample bounties shown when relays are empty
+- **PWA Ready** — Manifest, theme color, standalone display
 - **Mobile Responsive** — Works on 375px+ screens
+
+## Tests
+
+```
+422 unit tests (45 files) — vitest
+ 28 E2E tests (4 files)  — playwright
+───
+450 total tests
+```
 
 ## Prerequisites
 
