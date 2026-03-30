@@ -86,6 +86,17 @@ function HomeContent() {
 
   const { bounties, loading, error, refetch } = useBounties(ndk, filter);
   const searchRef = useRef<HTMLInputElement>(null);
+  const [connectTimeout, setConnectTimeout] = useState(false);
+
+  // Show timeout message if relays don't connect within 15s
+  useEffect(() => {
+    if (connected) {
+      setConnectTimeout(false);
+      return;
+    }
+    const timer = setTimeout(() => setConnectTimeout(true), 15_000);
+    return () => clearTimeout(timer);
+  }, [connected]);
 
   // Cmd+K / Ctrl+K to focus search
   useEffect(() => {
@@ -264,7 +275,14 @@ function HomeContent() {
         {!connected && (
           <div className="space-y-4">
             <div className="text-center py-4 text-zinc-500">
-              <p className="text-sm">Connecting to NOSTR relays...</p>
+              {connectTimeout ? (
+                <>
+                  <p className="text-sm text-yellow-400 mb-2">Relay connection is taking longer than expected...</p>
+                  <p className="text-xs">Check your network or try refreshing the page.</p>
+                </>
+              ) : (
+                <p className="text-sm">Connecting to NOSTR relays...</p>
+              )}
             </div>
             <BountySkeletonList count={4} />
           </div>
@@ -338,6 +356,9 @@ function HomeContent() {
             </Link>
             <Link href="/docs" className="hover:text-zinc-400 transition">
               API Docs
+            </Link>
+            <Link href="/admin" className="hover:text-zinc-400 transition">
+              Admin
             </Link>
             <Link href="/api/health" className="hover:text-zinc-400 transition">
               Status
