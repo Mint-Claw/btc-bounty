@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import BountyCard from "@/components/BountyCard";
 import RelayStatus from "@/components/RelayStatus";
 import { useBounties, useNDK, type BountyFilter, type SortOption } from "@/hooks/useBounties";
 import type { BountyStatus, BountyCategory } from "@/lib/nostr/schema";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import { BountySkeletonList } from "@/components/BountySkeleton";
 import { DEMO_BOUNTIES } from "@/lib/demo-bounties";
 
@@ -55,9 +56,34 @@ function StatsBar({ bounties, loading }: { bounties: { status: string; rewardSat
   );
 }
 
-export default function Home() {
+function HomeContent() {
   const { ndk, connected } = useNDK();
-  const [filter, setFilter] = useState<BountyFilter>({});
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Initialize filter from URL params
+  const [filter, setFilter] = useState<BountyFilter>(() => ({
+    status: searchParams.get("status") || undefined,
+    category: searchParams.get("category") || undefined,
+    search: searchParams.get("q") || undefined,
+    sort: (searchParams.get("sort") as SortOption) || undefined,
+  }));
+
+  // Sync filter changes to URL
+  const updateFilter = useCallback((updater: (prev: BountyFilter) => BountyFilter) => {
+    setFilter((prev) => {
+      const next = updater(prev);
+      const params = new URLSearchParams();
+      if (next.status) params.set("status", next.status);
+      if (next.category) params.set("category", next.category);
+      if (next.search) params.set("q", next.search);
+      if (next.sort && next.sort !== "newest") params.set("sort", next.sort);
+      const qs = params.toString();
+      router.replace(qs ? `/?${qs}` : "/", { scroll: false });
+      return next;
+    });
+  }, [router]);
+
   const { bounties, loading, error, refetch } = useBounties(ndk, filter);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -132,7 +158,7 @@ export default function Home() {
             placeholder="Search bounties…"
             value={filter.search ?? ""}
             onChange={(e) =>
-              setFilter((f) => ({
+              updateFilter((f) => ({
                 ...f,
                 search: e.target.value || undefined,
               }))
@@ -148,7 +174,7 @@ export default function Home() {
           <select
             value={filter.status ?? ""}
             onChange={(e) =>
-              setFilter((f) => ({
+              updateFilter((f) => ({
                 ...f,
                 status: e.target.value || undefined,
               }))
@@ -167,7 +193,7 @@ export default function Home() {
           <select
             value={filter.category ?? ""}
             onChange={(e) =>
-              setFilter((f) => ({
+              updateFilter((f) => ({
                 ...f,
                 category: e.target.value || undefined,
               }))
@@ -186,7 +212,7 @@ export default function Home() {
           <select
             value={filter.sort ?? "newest"}
             onChange={(e) =>
-              setFilter((f) => ({
+              updateFilter((f) => ({
                 ...f,
                 sort: (e.target.value as SortOption) || undefined,
               }))
@@ -305,5 +331,17 @@ export default function Home() {
         </div>
       </footer>
     </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center">
+        <div className="text-zinc-500">Loading...</div>
+      </main>
+    }>
+      <HomeContent />
+    </Suspense>
   );
 }
