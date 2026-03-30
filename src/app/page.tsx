@@ -95,7 +95,12 @@ function HomeContent() {
         searchRef.current?.focus();
       }
       if (e.key === "Escape") {
-        searchRef.current?.blur();
+        if (document.activeElement === searchRef.current) {
+          searchRef.current?.blur();
+        } else {
+          // Clear all filters when Escape pressed outside search
+          updateFilter(() => ({}));
+        }
       }
     }
     window.addEventListener("keydown", handleKeyDown);
@@ -225,6 +230,16 @@ function HomeContent() {
               </option>
             ))}
           </select>
+
+          {/* Clear filters — show only when filters active */}
+          {(filter.status || filter.category || filter.search || (filter.sort && filter.sort !== "newest")) && (
+            <button
+              onClick={() => updateFilter(() => ({}))}
+              className="text-sm text-red-400 hover:text-red-300 transition"
+            >
+              ✕ Clear
+            </button>
+          )}
 
           <button
             onClick={() => refetch()}
