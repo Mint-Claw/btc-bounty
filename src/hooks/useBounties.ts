@@ -6,10 +6,13 @@ import { BOUNTY_KIND, parseBountyEvent } from "@/lib/nostr/schema";
 import type NDK from "@nostr-dev-kit/ndk";
 import { NDKFilter } from "@nostr-dev-kit/ndk";
 
+export type SortOption = "newest" | "oldest" | "reward_high" | "reward_low";
+
 export type BountyFilter = {
   status?: string;
   category?: string;
   search?: string;
+  sort?: SortOption;
 };
 
 export function useBounties(ndk: NDK | null, filter?: BountyFilter) {
@@ -55,14 +58,27 @@ export function useBounties(ndk: NDK | null, filter?: BountyFilter) {
         }
       }
 
-      parsed.sort((a, b) => b.createdAt - a.createdAt);
+      const sortBy = filter?.sort ?? "newest";
+      switch (sortBy) {
+        case "oldest":
+          parsed.sort((a, b) => a.createdAt - b.createdAt);
+          break;
+        case "reward_high":
+          parsed.sort((a, b) => b.rewardSats - a.rewardSats);
+          break;
+        case "reward_low":
+          parsed.sort((a, b) => a.rewardSats - b.rewardSats);
+          break;
+        default: // newest
+          parsed.sort((a, b) => b.createdAt - a.createdAt);
+      }
       setBounties(parsed);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to fetch bounties");
     } finally {
       setLoading(false);
     }
-  }, [ndk, filter?.status, filter?.category, filter?.search]);
+  }, [ndk, filter?.status, filter?.category, filter?.search, filter?.sort]);
 
   useEffect(() => {
     fetchBounties();

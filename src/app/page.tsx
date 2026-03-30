@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import BountyCard from "@/components/BountyCard";
 import RelayStatus from "@/components/RelayStatus";
-import { useBounties, useNDK, type BountyFilter } from "@/hooks/useBounties";
+import { useBounties, useNDK, type BountyFilter, type SortOption } from "@/hooks/useBounties";
 import type { BountyStatus, BountyCategory } from "@/lib/nostr/schema";
 import Link from "next/link";
 import { BountySkeletonList } from "@/components/BountySkeleton";
@@ -11,6 +11,12 @@ import { DEMO_BOUNTIES } from "@/lib/demo-bounties";
 
 const STATUSES: BountyStatus[] = ["OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
 const CATEGORIES: BountyCategory[] = ["code", "design", "writing", "research", "other"];
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: "newest", label: "Newest first" },
+  { value: "oldest", label: "Oldest first" },
+  { value: "reward_high", label: "Highest reward" },
+  { value: "reward_low", label: "Lowest reward" },
+];
 
 function StatsBar({ bounties, loading }: { bounties: { status: string; rewardSats: number }[]; loading: boolean }) {
   if (loading) {
@@ -172,6 +178,24 @@ export default function Home() {
             {CATEGORIES.map((c) => (
               <option key={c} value={c}>
                 {c.charAt(0).toUpperCase() + c.slice(1)}
+              </option>
+            ))}
+          </select>
+
+          {/* Sort */}
+          <select
+            value={filter.sort ?? "newest"}
+            onChange={(e) =>
+              setFilter((f) => ({
+                ...f,
+                sort: (e.target.value as SortOption) || undefined,
+              }))
+            }
+            className="bg-zinc-900 border border-zinc-700 text-zinc-300 text-sm rounded-lg px-3 py-1.5 focus:border-orange-500 focus:outline-none"
+          >
+            {SORT_OPTIONS.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
               </option>
             ))}
           </select>
