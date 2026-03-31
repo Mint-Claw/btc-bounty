@@ -13,6 +13,7 @@ import {
   setPayoutInfo,
 } from "@/lib/server/payments";
 import { deliverWebhook } from "@/lib/server/webhooks";
+import { TokuSyncService } from "@/lib/server/toku-sync";
 
 export async function POST(
   request: NextRequest,
@@ -130,6 +131,14 @@ export async function POST(
           };
         }
       }
+    }
+
+    // Cancel toku.agency listing if one exists (async, non-blocking)
+    if (dTag) {
+      const tokuSync = new TokuSyncService();
+      tokuSync.cancelListing(dTag).catch((e: Error) => {
+        console.error("[award] toku.agency cancel failed:", e.message);
+      });
     }
 
     // Notify via webhook

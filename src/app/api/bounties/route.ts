@@ -21,6 +21,8 @@ import { createPayment } from "@/lib/server/payments";
 import { verifyNostrEvent } from "@/lib/nostr/verify";
 import { deliverWebhook } from "@/lib/server/webhooks";
 import { CreateBountySchema, validateBody } from "@/lib/validation";
+import { TokuSyncService } from "@/lib/server/toku-sync";
+import { shouldListOnToku } from "@/lib/server/toku";
 
 export async function POST(request: NextRequest) {
   const agent = authenticateRequest(request);
@@ -105,6 +107,25 @@ export async function POST(request: NextRequest) {
           error: `Escrow creation failed: ${(e as Error).message}`,
         };
       }
+    }
+
+    // Cross-list on toku.agency if above threshold (async, non-blocking)
+    if (shouldListOnToku(rewardSats)) {
+      const tokuSync = new TokuSyncService();
+      tokuSync.listBounty({
+        id: signed.id,
+        pubkey: signed.pubkey,
+        dTag,
+        title,
+        content,
+        rewardSats,
+        category: (category as string) || "other",
+        tags: tags || [],
+        status: "OPEN",
+        createdAt: signed.created_at,
+      } as any).catch((e: Error) => {
+        console.error("[bounty] toku.agency listing failed:", e.message);
+      });
     }
 
     // Fire webhook notification (async, non-blocking)
