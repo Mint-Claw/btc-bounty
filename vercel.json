@@ -1,7 +1,22 @@
 {
   "framework": "nextjs",
+  "buildCommand": "pnpm build",
+  "installCommand": "pnpm install --frozen-lockfile",
   "env": {
     "NEXT_PUBLIC_APP_NAME": "BTC Bounty",
     "NEXT_PUBLIC_RELAYS": "wss://relay.damus.io,wss://relay.nostr.band,wss://nos.lol,wss://relay.snort.social"
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    }
+  ],
+  "functions": {
+    "src/app/api/**/*.ts": {
+      "maxDuration": 30
+    }
   }
 }
