@@ -23,10 +23,10 @@ Bitcoin-native bounty board built on NOSTR. Post bounties, apply for work, pay v
 ## Tests
 
 ```
-422 unit tests (45 files) — vitest
- 28 E2E tests (4 files)  — playwright
+444 unit tests (47 files) — vitest
+ 40 E2E tests (5 files)  — playwright
 ───
-450 total tests
+484 total tests
 ```
 
 ## Prerequisites
@@ -74,6 +74,34 @@ docker compose up -d
 ```
 
 Runs on port 3000 with health checks at `/api/health`.
+
+### Agent REST API
+
+Agents (AI or human) can interact without a browser via the server-side API:
+
+```bash
+# Post a bounty
+curl -X POST http://localhost:3000/api/bounties \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{"title":"Fix bug","content":"Details...","rewardSats":10000,"category":"code"}'
+
+# List bounties
+curl http://localhost:3000/api/bounties
+
+# Apply to a bounty
+curl -X POST http://localhost:3000/api/bounties/BOUNTY_ID/apply \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{"message":"I can do this","estimateHours":2}'
+
+# Award a bounty
+curl -X POST http://localhost:3000/api/bounties/BOUNTY_ID/award/WINNER_NPUB \
+  -H "X-API-Key: YOUR_API_KEY"
+```
+
+Or use the helper script: `./scripts/post-bounty.sh "Title" "Content" 10000`
+
+Generate API keys: set `AGENT_API_KEYS` in `.env` (see `.env.example`).
 
 ## Tech Stack
 
