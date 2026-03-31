@@ -82,7 +82,7 @@ export async function createPayment(params: {
 }): Promise<BountyPayment> {
   ensureLoaded();
 
-  const PLATFORM_FEE_PCT = 0.025;
+  const PLATFORM_FEE_PCT = 0.05;
   const payment: BountyPayment = {
     id: crypto.randomUUID(),
     bountyId: params.bountyId,

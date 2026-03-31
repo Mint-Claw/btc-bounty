@@ -198,13 +198,13 @@ export async function isInvoiceSettled(invoiceId: string): Promise<boolean> {
  * Create a payout to the bounty winner's Lightning address.
  * Called when the bounty poster selects a winner.
  *
- * Platform fee (2.5%) is deducted before payout.
+ * Platform fee (5%) is deducted before payout.
  */
 export async function createPayout(
   req: CreatePayoutRequest,
 ): Promise<BTCPayPayout> {
   const config = getConfig();
-  const PLATFORM_FEE_PCT = 0.025;
+  const PLATFORM_FEE_PCT = 0.05;
   const feeAmount = Math.floor(req.amount * PLATFORM_FEE_PCT);
   const payoutAmount = req.amount - feeAmount;
 

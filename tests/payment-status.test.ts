@@ -39,7 +39,7 @@ describe("payment status API", () => {
     expect(paid?.winnerPubkey).toBe("npub1winner");
   });
 
-  it("calculates platform fee correctly (2.5%)", async () => {
+  it("calculates platform fee correctly (5%)", async () => {
     const payment = await createPayment({
       bountyId: "test-bounty-2",
       bountyEventId: "evt2",
@@ -48,7 +48,7 @@ describe("payment status API", () => {
       btcpayInvoiceId: "inv_456",
     });
 
-    expect(payment.platformFeeSats).toBe(2500); // 2.5% of 100000
+    expect(payment.platformFeeSats).toBe(5000); // 5% of 100000
   });
 
   it("looks up payment by bountyId", async () => {

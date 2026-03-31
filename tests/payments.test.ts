@@ -34,7 +34,7 @@ describe("Payment Store", () => {
     expect(payment.bountyEventId).toBe("event123");
     expect(payment.posterPubkey).toBe("pubkey123");
     expect(payment.amountSats).toBe(100000);
-    expect(payment.platformFeeSats).toBe(2500); // 2.5%
+    expect(payment.platformFeeSats).toBe(5000); // 5%
     expect(payment.btcpayInvoiceId).toBe("inv_abc");
     expect(payment.btcpayPayoutId).toBeNull();
     expect(payment.status).toBe("pending");
@@ -235,10 +235,10 @@ describe("Payment Store", () => {
     expect(stats.paid).toBe(2);
     expect(stats.pending).toBe(1);
     expect(stats.totalVolumeSats).toBe(300000);
-    expect(stats.totalFeesSats).toBe(7500); // 2.5% of 300k
+    expect(stats.totalFeesSats).toBe(15000); // 5% of 300k
   });
 
-  it("platform fee is 2.5%", async () => {
+  it("platform fee is 5%", async () => {
     const amounts = [10000, 100000, 1000000, 50000];
     for (const amt of amounts) {
       resetPaymentStore();
@@ -249,7 +249,7 @@ describe("Payment Store", () => {
         amountSats: amt,
         btcpayInvoiceId: "inv1",
       });
-      expect(p.platformFeeSats).toBe(Math.floor(amt * 0.025));
+      expect(p.platformFeeSats).toBe(Math.floor(amt * 0.05));
     }
   });
 });

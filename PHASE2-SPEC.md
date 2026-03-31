@@ -152,7 +152,7 @@ CREATE TABLE toku_listings (
 ---
 
 ## Revenue Model
-- **Platform fee:** 2.5% of each settled bounty (deducted before payout)
+- **Platform fee:** 5% of each settled bounty (deducted before payout)
 - **Fee destination:** OVERSEER's Lightning address (or BTCPay internal wallet)
 - Projected: if $10k/month bounty volume → $250/month passive
 
