@@ -11,7 +11,8 @@ import { NextRequest, NextResponse } from "next/server";
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 
 const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
-const RATE_LIMIT_MAX = 60; // 60 requests per minute per IP
+const RATE_LIMIT_MAX_ANONYMOUS = 30; // 30 req/min for anonymous
+const RATE_LIMIT_MAX_AGENT = 120; // 120 req/min for authenticated agents
 
 function getClientIP(request: NextRequest): string {
   return (
@@ -21,17 +22,20 @@ function getClientIP(request: NextRequest): string {
   );
 }
 
-function isRateLimited(ip: string): boolean {
+function checkRateLimit(key: string, max: number): { limited: boolean; remaining: number } {
   const now = Date.now();
-  const entry = rateLimitMap.get(ip);
+  const entry = rateLimitMap.get(key);
 
   if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return false;
+    rateLimitMap.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return { limited: false, remaining: max - 1 };
   }
 
   entry.count++;
-  return entry.count > RATE_LIMIT_MAX;
+  return {
+    limited: entry.count > max,
+    remaining: Math.max(0, max - entry.count),
+  };
 }
 
 // Periodically clean up expired entries (every 5 min)
@@ -56,15 +60,24 @@ export function middleware(request: NextRequest) {
   }
 
   const ip = getClientIP(request);
+  const apiKey = request.headers.get("x-api-key");
 
-  if (isRateLimited(ip)) {
+  // Authenticated agents get higher limits, keyed by API key
+  // Anonymous requests are keyed by IP
+  const rateLimitKey = apiKey ? `agent:${apiKey}` : `ip:${ip}`;
+  const rateLimitMax = apiKey ? RATE_LIMIT_MAX_AGENT : RATE_LIMIT_MAX_ANONYMOUS;
+
+  const { limited, remaining } = checkRateLimit(rateLimitKey, rateLimitMax);
+
+  if (limited) {
     return NextResponse.json(
       { error: "Too many requests. Please try again later." },
       {
         status: 429,
         headers: {
           "Retry-After": "60",
-          "X-RateLimit-Limit": String(RATE_LIMIT_MAX),
+          "X-RateLimit-Limit": String(rateLimitMax),
+          "X-RateLimit-Remaining": "0",
         },
       }
     );
@@ -90,6 +103,10 @@ export function middleware(request: NextRequest) {
     "Content-Type, Authorization, X-API-Key, X-Nostr-Sig"
   );
   response.headers.set("Access-Control-Max-Age", "86400");
+
+  // Rate limit info headers
+  response.headers.set("X-RateLimit-Limit", String(rateLimitMax));
+  response.headers.set("X-RateLimit-Remaining", String(remaining));
 
   // Security headers
   response.headers.set("X-Content-Type-Options", "nosniff");

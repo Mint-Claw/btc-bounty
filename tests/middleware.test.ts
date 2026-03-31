@@ -90,6 +90,50 @@ describe("Middleware", () => {
     expect(allowHeaders).toContain("X-API-Key");
   });
 
+  it("returns rate limit headers on successful requests", async () => {
+    const { middleware } = await import("@/middleware");
+
+    const request = {
+      nextUrl: { pathname: "/api/bounties" },
+      headers: {
+        get: (key: string) => {
+          if (key === "x-forwarded-for") return "10.0.0.50";
+          if (key === "origin") return "http://localhost:3000";
+          return null;
+        },
+      },
+      method: "GET",
+    };
+
+    const response = middleware(request as any);
+    expect(response.status).not.toBe(429);
+    // Anonymous limit = 30
+    expect(response.headers.get("X-RateLimit-Limit")).toBe("30");
+    expect(response.headers.get("X-RateLimit-Remaining")).toBeTruthy();
+  });
+
+  it("gives authenticated agents higher rate limits", async () => {
+    const { middleware } = await import("@/middleware");
+
+    const request = {
+      nextUrl: { pathname: "/api/bounties" },
+      headers: {
+        get: (key: string) => {
+          if (key === "x-forwarded-for") return "10.0.0.60";
+          if (key === "x-api-key") return "agent-key-123";
+          if (key === "origin") return "http://localhost:3000";
+          return null;
+        },
+      },
+      method: "GET",
+    };
+
+    const response = middleware(request as any);
+    expect(response.status).not.toBe(429);
+    // Agent limit = 120
+    expect(response.headers.get("X-RateLimit-Limit")).toBe("120");
+  });
+
   it("adds security headers to API responses", async () => {
     const { middleware } = await import("@/middleware");
     
