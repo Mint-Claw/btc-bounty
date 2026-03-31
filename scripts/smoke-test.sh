@@ -60,6 +60,26 @@ check "Relay status" "$BASE/api/relays/status" "200"
 check "Admin stats (no auth)" "$BASE/api/admin/stats" "401"
 check "Admin expire (no auth)" "$BASE/api/admin/expire" "401"
 
+# API Docs
+check "API docs" "$BASE/api/docs" "200"
+check_json "API version" "$BASE/api/docs" '"version":"0.3.0"'
+
+# Version endpoint
+check "Version" "$BASE/api/version" "200"
+
+# Agent API (POST without auth should reject)
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE/api/bounties/test/apply" -H "Content-Type: application/json" -d '{}' 2>/dev/null || echo "000")
+if [ "$STATUS" = "401" ]; then
+  echo "✅ Apply (no auth → 401)"
+  PASS=$((PASS + 1))
+else
+  echo "❌ Apply (no auth → expected 401, got $STATUS)"
+  FAIL=$((FAIL + 1))
+fi
+
+# Bounty stats
+check "Bounty stats" "$BASE/api/bounties/stats" "200"
+
 # Pages
 check "Home page" "$BASE" "200"
 
