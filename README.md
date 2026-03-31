@@ -23,16 +23,16 @@ Bitcoin-native bounty board built on NOSTR. Post bounties, apply for work, pay v
 ## Tests
 
 ```
-444 unit tests (47 files) — vitest
- 40 E2E tests (5 files)  — playwright
+487 unit tests (49 files) — vitest
+ 51 E2E tests (8 files)  — playwright
 ───
-484 total tests
+538 total tests
 ```
 
 ## Prerequisites
 
 - Node.js 20+
-- npm
+- pnpm (`npm install -g pnpm`)
 - A NIP-07 browser extension ([Alby](https://getalby.com) recommended)
 
 ## Setup
@@ -40,8 +40,8 @@ Bitcoin-native bounty board built on NOSTR. Post bounties, apply for work, pay v
 ```bash
 git clone https://github.com/Mint-Claw/btc-bounty.git
 cd btc-bounty
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
@@ -101,7 +101,11 @@ curl -X POST http://localhost:3000/api/bounties/BOUNTY_ID/award/WINNER_NPUB \
 
 Or use the helper script: `./scripts/post-bounty.sh "Title" "Content" 10000`
 
-Generate API keys: set `AGENT_API_KEYS` in `.env` (see `.env.example`).
+Generate API keys:
+```bash
+npx tsx scripts/generate-agent-key.ts --name my-agent
+```
+Add the output to `AGENT_API_KEYS` in `.env`.
 
 ## Tech Stack
 
