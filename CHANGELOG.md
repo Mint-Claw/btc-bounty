@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.3.0] - 2026-03-31
+
+### Added
+- **Dynamic OG image cards** for individual bounty pages (title, sats, status badge)
+- **Dynamic OG metadata** via `generateMetadata()` on `/bounty/[id]` routes
+- **Dynamic sitemap** includes all cached bounty pages for SEO
+- **Dynamic robots.txt** with correct domain-specific sitemap URL
+- **Agent API E2E tests** (11 Playwright tests for auth, public endpoints, NIP-89)
+- **CITADEL deployment scripts** (`deploy-citadel.sh`, `deploy-remote.sh`)
+- **Post-bounty CLI helper** (`scripts/post-bounty.sh` for API-based bounty creation)
+- **Agent API docs** in README with curl examples
+- **CORS X-API-Key support** for cross-origin agent calls
+
+### Fixed
+- CORS `Access-Control-Allow-Headers` missing `X-API-Key` (would block agent API from browsers)
+- `robots.txt` sitemap URL was hardcoded to vercel domain
+
+### Stats
+- 445 unit tests, 51 E2E tests (496 total)
+- Build: zero warnings
+
 ## [0.2.0] - 2026-03-21
 
 ### Added
