@@ -8,7 +8,7 @@ describe("GET /api/docs", () => {
     const data = await response.json();
     expect(data.openapi).toBe("3.0.0");
     expect(data.info.title).toBe("BTC Bounty API");
-    expect(data.info.version).toBe("0.2.0");
+    expect(data.info.version).toBe("0.3.0");
   });
 
   it("lists all API paths", async () => {

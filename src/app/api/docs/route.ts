@@ -10,7 +10,7 @@ const API_DOCS = {
   openapi: "3.0.0",
   info: {
     title: "BTC Bounty API",
-    version: "0.2.0",
+    version: "0.3.0",
     description:
       "Bitcoin-native bounty platform powered by Nostr and Lightning Network.",
   },
@@ -63,6 +63,40 @@ const API_DOCS = {
         summary: "Award bounty to applicant",
         description: "Award the bounty to a specific applicant by npub.",
         security: [{ apiKey: [] }],
+      },
+    },
+    "/api/bounties/{id}/fund": {
+      post: {
+        summary: "Fund a bounty with Bitcoin",
+        description:
+          "Creates a BTCPay invoice for escrow. Redirects to BTCPay checkout. Only the bounty owner can fund.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["amountSats"],
+                properties: {
+                  amountSats: {
+                    type: "integer",
+                    minimum: 1000,
+                    maximum: 10000000,
+                    description: "Amount to escrow in satoshis",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description:
+              "Invoice created. Contains checkoutUrl to redirect user to BTCPay.",
+          },
+          "409": { description: "Bounty already funded" },
+          "503": { description: "BTCPay Server not configured" },
+        },
       },
     },
     "/api/bounties/{id}/submit": {
