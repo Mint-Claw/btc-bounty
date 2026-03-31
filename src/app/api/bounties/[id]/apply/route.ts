@@ -7,6 +7,9 @@ import { authenticateRequest } from "@/lib/server/auth";
 import { signEventServer } from "@/lib/server/signing";
 import { publishToRelays } from "@/lib/server/relay";
 import { deliverWebhook } from "@/lib/server/webhooks";
+import { notifyBountyApplication } from "@/lib/server/notifications";
+import { fetchFromRelays } from "@/lib/server/relay";
+import { BOUNTY_KIND, parseBountyEvent } from "@/lib/nostr/schema";
 
 export async function POST(
   request: NextRequest,
@@ -57,6 +60,24 @@ export async function POST(
 
   try {
     const relayCount = await publishToRelays(signed);
+
+    // Notify bounty poster via NIP-04 DM (async, non-blocking)
+    fetchFromRelays({ kinds: [BOUNTY_KIND], "#d": [bountyEventId] })
+      .then((events) => {
+        if (events.length > 0) {
+          const bounty = parseBountyEvent(events[0]);
+          if (bounty) {
+            notifyBountyApplication({
+              posterPubkey: bounty.pubkey,
+              bountyTitle: bounty.title,
+              bountyId: bountyEventId,
+              applicantName: signed.pubkey.slice(0, 12) + "...",
+              message: pitch as string,
+            });
+          }
+        }
+      })
+      .catch((e) => console.error("[apply] Notification fetch failed:", e));
 
     // Notify bounty poster via webhook
     deliverWebhook("bounty.applied", {
