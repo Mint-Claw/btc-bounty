@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/server/auth";
 import { signEventServer } from "@/lib/server/signing";
 import { publishToRelays } from "@/lib/server/relay";
+import { deliverWebhook } from "@/lib/server/webhooks";
 
 export async function POST(
   request: NextRequest,
@@ -56,6 +57,16 @@ export async function POST(
 
   try {
     const relayCount = await publishToRelays(signed);
+
+    // Notify bounty poster via webhook
+    deliverWebhook("bounty.applied", {
+      bountyId: bountyEventId,
+      applicantPubkey: signed.pubkey,
+      applicationEventId: signed.id,
+      pitch: pitch as string,
+      ...(lightning && { lightning }),
+    });
+
     return NextResponse.json(
       {
         id: signed.id,

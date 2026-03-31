@@ -12,6 +12,7 @@ import {
   getPaymentByBountyId,
   setPayoutInfo,
 } from "@/lib/server/payments";
+import { deliverWebhook } from "@/lib/server/webhooks";
 
 export async function POST(
   request: NextRequest,
@@ -130,6 +131,15 @@ export async function POST(
         }
       }
     }
+
+    // Notify via webhook
+    deliverWebhook("bounty.completed", {
+      bountyId: bountyEventId,
+      bountyTitle: bounty.title,
+      winnerPubkey,
+      rewardSats: bounty.rewardSats,
+      ...(payoutResult && { payout: payoutResult }),
+    });
 
     return NextResponse.json({
       id: signed.id,
