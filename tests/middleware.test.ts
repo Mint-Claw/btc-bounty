@@ -69,6 +69,27 @@ describe("Middleware", () => {
     expect(response.status).toBe(204);
   });
 
+  it("CORS allows X-API-Key header for agent auth", async () => {
+    const { middleware } = await import("@/middleware");
+    
+    const request = {
+      nextUrl: { pathname: "/api/bounties" },
+      headers: {
+        get: (key: string) => {
+          if (key === "x-forwarded-for") return "10.0.0.10";
+          if (key === "origin") return "https://agent.example.com";
+          return null;
+        },
+      },
+      method: "OPTIONS",
+    };
+    
+    const response = middleware(request as any);
+    expect(response.status).toBe(204);
+    const allowHeaders = response.headers.get("Access-Control-Allow-Headers") || "";
+    expect(allowHeaders).toContain("X-API-Key");
+  });
+
   it("adds security headers to API responses", async () => {
     const { middleware } = await import("@/middleware");
     

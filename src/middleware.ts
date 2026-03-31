@@ -87,7 +87,7 @@ export function middleware(request: NextRequest) {
   );
   response.headers.set(
     "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, X-Nostr-Sig"
+    "Content-Type, Authorization, X-API-Key, X-Nostr-Sig"
   );
   response.headers.set("Access-Control-Max-Age", "86400");
 
