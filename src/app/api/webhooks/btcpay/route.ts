@@ -23,6 +23,7 @@ import {
   getPaymentByPayoutId,
 } from "@/lib/server/payments";
 import { markBountyFunded, markBountyPaid } from "@/lib/server/bounty-updater";
+import { sendNotification } from "@/lib/server/notifications";
 
 export async function POST(request: NextRequest) {
   // Read raw body for signature verification
@@ -108,6 +109,14 @@ async function handleInvoiceSettled(payload: WebhookPayload) {
     } else {
       console.warn(`[webhook] Could not update NOSTR event for bounty ${bountyId} (no managed nsec or relay error)`);
     }
+    // Notify bounty poster that their escrow is funded
+    sendNotification({
+      type: "bounty.payment_confirmed",
+      recipientPubkey: payment.posterPubkey,
+      bountyTitle: bountyId,
+      bountyId,
+      extra: { amount: String(payment.amountSats) },
+    }).catch((e) => console.error("[webhook] Notification failed:", e));
   } else {
     console.warn(
       `[webhook] No payment record found for invoice ${payload.invoiceId}`,
@@ -148,6 +157,15 @@ async function handlePayoutApproved(payload: WebhookPayload) {
       if (relays > 0) {
         console.log(`[webhook] NOSTR event updated: bounty ${bountyId} completed, winner ${winnerPubkey.slice(0, 12)}...`);
       }
+
+      // Notify winner that payment was sent
+      sendNotification({
+        type: "bounty.payment_confirmed",
+        recipientPubkey: winnerPubkey,
+        bountyTitle: bountyId,
+        bountyId,
+        extra: { amount: String(payment.amountSats) },
+      }).catch((e) => console.error("[webhook] Winner notification failed:", e));
     }
   }
 }
