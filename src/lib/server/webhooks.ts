@@ -18,6 +18,7 @@ import { createHmac } from "crypto";
 export type WebhookEvent =
   | "bounty.created"
   | "bounty.applied"
+  | "bounty.funded"
   | "bounty.assigned"
   | "bounty.completed"
   | "bounty.expired"
