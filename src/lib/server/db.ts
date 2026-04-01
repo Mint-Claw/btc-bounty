@@ -18,6 +18,14 @@ import fs from "fs";
 
 let _db: Database.Database | null = null;
 
+/**
+ * Inject an external DB instance (e.g. in-memory for tests).
+ * Call closeDB() first if switching from a previous instance.
+ */
+export function setDB(db: Database.Database): void {
+  _db = db;
+}
+
 export function getDB(): Database.Database {
   if (_db) return _db;
 

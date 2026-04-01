@@ -1,7 +1,8 @@
 /**
  * Tests for public payment status endpoint and FundedBadge logic.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
+import { setupTestDB, teardownTestDB } from "./helpers/test-db";
 import {
   createPayment,
   updatePaymentStatus,
@@ -10,6 +11,9 @@ import {
 } from "@/lib/server/payments";
 
 describe("payment status API", () => {
+  beforeAll(() => setupTestDB());
+  afterAll(() => teardownTestDB());
+
   beforeEach(() => {
     resetPaymentStore();
   });

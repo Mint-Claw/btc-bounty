@@ -4,7 +4,8 @@
  *
  * All external calls (relays, BTCPay) are mocked.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
+import { setupTestDB, teardownTestDB } from "./helpers/test-db";
 import {
   createPayment,
   getPaymentByBountyId,
@@ -17,6 +18,9 @@ import {
 } from "@/lib/server/payments";
 
 describe("Escrow Lifecycle", () => {
+  beforeAll(() => setupTestDB());
+  afterAll(() => teardownTestDB());
+
   beforeEach(() => {
     resetPaymentStore();
   });

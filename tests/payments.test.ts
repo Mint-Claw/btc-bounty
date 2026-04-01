@@ -1,7 +1,8 @@
 /**
- * Tests for payment tracking module.
+ * Tests for payment tracking module (SQLite-backed).
  */
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import { setupTestDB, teardownTestDB } from "./helpers/test-db";
 import {
   createPayment,
   getPayment,
@@ -16,6 +17,9 @@ import {
 } from "@/lib/server/payments";
 
 describe("Payment Store", () => {
+  beforeAll(() => setupTestDB());
+  afterAll(() => teardownTestDB());
+
   beforeEach(() => {
     resetPaymentStore();
   });
