@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Ensure native modules (better-sqlite3) are bundled in standalone output
+  serverExternalPackages: ["better-sqlite3"],
   async headers() {
     return [
       {

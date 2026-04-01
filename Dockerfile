@@ -8,6 +8,8 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 # --- Dependencies ---
 FROM base AS deps
 WORKDIR /app
+# better-sqlite3 needs build tools for native bindings
+RUN apk add --no-cache python3 make g++
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
@@ -36,6 +38,12 @@ RUN addgroup --system --gid 1001 nodejs && \
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
+
+# better-sqlite3 native bindings (required at runtime)
+COPY --from=deps /app/node_modules/better-sqlite3 ./node_modules/better-sqlite3
+COPY --from=deps /app/node_modules/bindings ./node_modules/bindings
+COPY --from=deps /app/node_modules/prebuild-install ./node_modules/prebuild-install
+COPY --from=deps /app/node_modules/file-uri-to-path ./node_modules/file-uri-to-path
 
 # Data directory for SQLite + payment tracking
 RUN mkdir -p /app/.data && chown nextjs:nodejs /app/.data
