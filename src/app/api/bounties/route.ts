@@ -23,6 +23,12 @@ import { deliverWebhook } from "@/lib/server/webhooks";
 import { CreateBountySchema, validateBody } from "@/lib/validation";
 import { TokuSyncService } from "@/lib/server/toku-sync";
 import { shouldListOnToku } from "@/lib/server/toku";
+import {
+  listCachedBounties,
+  searchCachedBounties,
+  cacheBountyEvent,
+  type BountyEventRow,
+} from "@/lib/server/db";
 
 export async function POST(request: NextRequest) {
   const agent = authenticateRequest(request);
@@ -156,25 +162,95 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * GET /api/bounties — List open bounties
+ *
+ * Strategy: cache-first (SQLite) with relay fallback.
+ *   ?source=relay  → force relay fetch (bypasses cache)
+ *   ?source=cache  → cache only (no relay fallback)
+ *   default        → try cache first, fall back to relay if empty
+ *
+ * Also backfills the cache when fetching from relays.
+ */
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const status = searchParams.get("status") || "OPEN";
   const category = searchParams.get("category");
   const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100);
+  const offset = parseInt(searchParams.get("offset") || "0");
   const search = searchParams.get("q")?.toLowerCase();
   const tag = searchParams.get("tag")?.toLowerCase();
   const minReward = parseInt(searchParams.get("min_reward") || "0");
   const maxReward = parseInt(searchParams.get("max_reward") || "0") || Infinity;
   const since = searchParams.get("since"); // ISO date or unix timestamp
   const sortBy = searchParams.get("sort") || "newest"; // newest, reward, expiring
+  const source = searchParams.get("source") || "auto"; // auto, cache, relay
 
+  const filters = {
+    status,
+    ...(category && { category }),
+    ...(search && { q: search }),
+    ...(tag && { tag }),
+    ...(minReward > 0 && { min_reward: minReward }),
+    ...(maxReward < Infinity && { max_reward: maxReward }),
+    sort: sortBy,
+    source,
+  };
+
+  // ── Try cache first (unless forced relay) ──
+  if (source !== "relay") {
+    try {
+      const cached = search
+        ? searchCachedBounties(search, { status, limit: limit * 2 })
+        : listCachedBounties({
+            status,
+            category: category || undefined,
+            limit: limit * 2,
+            offset,
+          });
+
+      if (cached.length > 0 || source === "cache") {
+        let results = cached
+          .filter((b) => b.reward_sats >= minReward && b.reward_sats <= (maxReward === Infinity ? Number.MAX_SAFE_INTEGER : maxReward));
+
+        // Tag filter (check tags_json)
+        if (tag) {
+          results = results.filter((b) => {
+            if (!b.tags_json) return false;
+            try {
+              const tags = JSON.parse(b.tags_json) as string[][];
+              return tags.some(
+                (t) => t[0] === "t" && t[1]?.toLowerCase() === tag,
+              );
+            } catch {
+              return false;
+            }
+          });
+        }
+
+        // Sort
+        results = sortCachedBounties(results, sortBy);
+        results = results.slice(0, limit);
+
+        return NextResponse.json({
+          bounties: results.map(cachedRowToResponse),
+          count: results.length,
+          source: "cache",
+          filters,
+        });
+      }
+    } catch (e) {
+      console.error("[bounties] Cache read failed, falling back to relay:", e);
+    }
+  }
+
+  // ── Relay fetch (fallback or forced) ──
   try {
     const filter: Record<string, unknown> = {
       kinds: [BOUNTY_KIND],
-      limit: limit * 2, // Fetch extra to account for client-side filtering
+      limit: limit * 2,
     };
 
-    // Use Nostr since filter if provided
     if (since) {
       const sinceTs = since.includes("-")
         ? Math.floor(new Date(since).getTime() / 1000)
@@ -183,17 +259,34 @@ export async function GET(request: NextRequest) {
     }
 
     const events = await fetchFromRelays(filter);
+
+    // Backfill cache (async, non-blocking)
+    for (const e of events) {
+      const parsed = parseBountyEvent({
+        id: e.id, pubkey: e.pubkey, content: e.content,
+        tags: e.tags, created_at: e.created_at,
+      });
+      if (parsed) {
+        try {
+          cacheBountyEvent({
+            id: e.id, dTag: parsed.dTag, pubkey: e.pubkey,
+            kind: BOUNTY_KIND, title: parsed.title,
+            summary: parsed.summary, content: parsed.content,
+            rewardSats: parsed.rewardSats, status: parsed.status,
+            category: parsed.category, lightning: parsed.lightning,
+            tags: e.tags, createdAt: e.created_at,
+          });
+        } catch { /* ignore cache write errors */ }
+      }
+    }
+
     let bounties = events
       .map((e) => {
         const parsed = parseBountyEvent({
-          id: e.id,
-          pubkey: e.pubkey,
-          content: e.content,
-          tags: e.tags,
-          created_at: e.created_at,
+          id: e.id, pubkey: e.pubkey, content: e.content,
+          tags: e.tags, created_at: e.created_at,
         });
         if (parsed) {
-          // Cryptographically verify the event signature (NIP-01)
           const verification = verifyNostrEvent(e, { skipTimestamp: true });
           (parsed as unknown as Record<string, unknown>).verified = verification.valid;
         }
@@ -202,11 +295,8 @@ export async function GET(request: NextRequest) {
       .filter((b) => b !== null)
       .filter((b) => !status || b.status === status)
       .filter((b) => !category || b.category === category)
-      .filter(
-        (b) => b.rewardSats >= minReward && b.rewardSats <= maxReward,
-      );
+      .filter((b) => b.rewardSats >= minReward && b.rewardSats <= maxReward);
 
-    // Text search across title, content, and tags
     if (search) {
       bounties = bounties.filter(
         (b) =>
@@ -216,14 +306,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Filter by specific tag
     if (tag) {
       bounties = bounties.filter(
         (b) => b.tags?.some((t: string) => t.toLowerCase() === tag),
       );
     }
 
-    // Sort
     switch (sortBy) {
       case "reward":
         bounties.sort((a, b) => b.rewardSats - a.rewardSats);
@@ -238,25 +326,17 @@ export async function GET(request: NextRequest) {
       case "oldest":
         bounties.sort((a, b) => a.createdAt - b.createdAt);
         break;
-      default: // newest
+      default:
         bounties.sort((a, b) => b.createdAt - a.createdAt);
     }
 
-    // Apply limit after filtering
     bounties = bounties.slice(0, limit);
 
     return NextResponse.json({
       bounties,
       count: bounties.length,
-      filters: {
-        status,
-        ...(category && { category }),
-        ...(search && { q: search }),
-        ...(tag && { tag }),
-        ...(minReward > 0 && { min_reward: minReward }),
-        ...(maxReward < Infinity && { max_reward: maxReward }),
-        sort: sortBy,
-      },
+      source: "relay",
+      filters,
     });
   } catch (e) {
     return NextResponse.json(
@@ -264,4 +344,49 @@ export async function GET(request: NextRequest) {
       { status: 502 },
     );
   }
+}
+
+// ── Helpers ──────────────────────────────────────────────────
+
+function sortCachedBounties(
+  rows: BountyEventRow[],
+  sortBy: string,
+): BountyEventRow[] {
+  switch (sortBy) {
+    case "reward":
+      return rows.sort((a, b) => b.reward_sats - a.reward_sats);
+    case "oldest":
+      return rows.sort((a, b) => a.created_at - b.created_at);
+    default: // newest
+      return rows.sort((a, b) => b.created_at - a.created_at);
+  }
+}
+
+function cachedRowToResponse(row: BountyEventRow) {
+  let tags: string[][] | undefined;
+  try {
+    tags = row.tags_json ? JSON.parse(row.tags_json) : undefined;
+  } catch {
+    tags = undefined;
+  }
+
+  return {
+    id: row.id,
+    dTag: row.d_tag,
+    pubkey: row.pubkey,
+    title: row.title,
+    summary: row.summary,
+    content: row.content,
+    rewardSats: row.reward_sats,
+    status: row.status,
+    category: row.category,
+    lightning: row.lightning,
+    winnerPubkey: row.winner_pubkey,
+    createdAt: row.created_at,
+    tags: tags
+      ?.filter((t) => t[0] === "t")
+      .map((t) => t[1]) || [],
+    verified: true, // Cache entries came from verified relay events
+    source: "cache",
+  };
 }
