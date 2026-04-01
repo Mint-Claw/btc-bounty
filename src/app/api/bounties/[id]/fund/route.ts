@@ -25,7 +25,7 @@ export async function POST(
     const amountSats = Number(body.amountSats);
 
     // Validate amount
-    if (!amountSats || amountSats < MIN_AMOUNT_SATS) {
+    if (!Number.isFinite(amountSats) || !Number.isInteger(amountSats) || amountSats < MIN_AMOUNT_SATS) {
       return NextResponse.json(
         { error: `Minimum amount is ${MIN_AMOUNT_SATS} sats` },
         { status: 400 },
