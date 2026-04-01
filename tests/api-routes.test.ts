@@ -39,6 +39,13 @@ const mockDB = {
 
 vi.mock("@/lib/server/db", () => ({
   getDB: () => mockDB,
+  getBountyStats: vi.fn().mockReturnValue({
+    total: 5,
+    open: 3,
+    in_progress: 1,
+    completed: 1,
+    total_sats: 250000,
+  }),
 }));
 
 // Mock btcpay
@@ -125,7 +132,10 @@ describe("API Routes", () => {
     it("requires API key for admin endpoints", async () => {
       // Admin routes typically check for authorization
       const { GET } = await import("@/app/api/admin/stats/route");
-      const response = await GET();
+      const mockRequest = {
+        headers: { get: () => null },
+      } as unknown as Request;
+      const response = await GET(mockRequest);
       const body = await response.json();
 
       // Should return data (in test env, auth may be bypassed)

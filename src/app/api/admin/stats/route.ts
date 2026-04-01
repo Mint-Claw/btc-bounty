@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getDB } from "@/lib/server/db";
+import { getDB, getBountyStats } from "@/lib/server/db";
+import { getPaymentStats } from "@/lib/server/payments";
 
 /**
  * GET /api/admin/stats — Admin dashboard statistics
@@ -8,7 +9,6 @@ import { getDB } from "@/lib/server/db";
  * Protected by ADMIN_SECRET header in production.
  */
 export async function GET(request: Request) {
-  // Simple auth check
   const adminSecret = process.env.ADMIN_SECRET;
   if (adminSecret) {
     const auth = request.headers.get("x-admin-secret");
@@ -19,26 +19,15 @@ export async function GET(request: Request) {
 
   try {
     const db = getDB();
-
-    // Payment stats
-    const paymentStats = db
-      .prepare(
-        `SELECT
-          count(*) as total_payments,
-          count(CASE WHEN status = 'settled' THEN 1 END) as settled,
-          count(CASE WHEN status = 'pending' THEN 1 END) as pending,
-          count(CASE WHEN status = 'expired' THEN 1 END) as expired,
-          coalesce(sum(CASE WHEN status = 'settled' THEN amount_sats ELSE 0 END), 0) as total_sats_settled
-        FROM bounty_payments`
-      )
-      .get() as Record<string, number>;
+    const bountyStats = getBountyStats();
+    const paymentStats = await getPaymentStats();
 
     // API key stats
     const keyStats = db
       .prepare(
         `SELECT
           count(*) as total_keys,
-          count(CASE WHEN revoked_at IS NULL THEN 1 END) as active_keys
+          count(CASE WHEN last_used_at IS NOT NULL THEN 1 END) as active_keys
         FROM api_keys`
       )
       .get() as Record<string, number>;
@@ -48,65 +37,52 @@ export async function GET(request: Request) {
       .prepare(
         `SELECT
           count(*) as total_listings,
-          count(CASE WHEN synced = 1 THEN 1 END) as synced
+          count(CASE WHEN status = 'active' THEN 1 END) as active,
+          count(CASE WHEN status = 'completed' THEN 1 END) as completed,
+          count(CASE WHEN status = 'cancelled' THEN 1 END) as cancelled
         FROM toku_listings`
       )
       .get() as Record<string, number>;
 
-    // Bounty stats
-    const bountyStats = db
-      .prepare(
-        `SELECT
-          count(*) as total_bounties,
-          count(CASE WHEN status = 'OPEN' THEN 1 END) as open,
-          count(CASE WHEN status = 'IN_PROGRESS' THEN 1 END) as claimed,
-          count(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed,
-          count(CASE WHEN status = 'CANCELLED' THEN 1 END) as expired,
-          coalesce(sum(reward_sats), 0) as total_reward_sats,
-          coalesce(sum(CASE WHEN status = 'COMPLETED' THEN reward_sats ELSE 0 END), 0) as paid_out_sats
-        FROM bounty_events`
-      )
-      .get() as Record<string, number>;
-
-    // Recent activity (last 24h)
-    const recentPayments = db
-      .prepare(
-        `SELECT count(*) as cnt
-        FROM bounty_payments
-        WHERE created_at > datetime('now', '-24 hours')`
-      )
-      .get() as { cnt: number };
-
+    // Recent activity (last 24h) — bounty_events.created_at is unix timestamp
+    const oneDayAgo = Math.floor(Date.now() / 1000) - 86400;
     const recentBounties = db
       .prepare(
-        `SELECT count(*) as cnt
-        FROM bounty_events
-        WHERE created_at > datetime('now', '-24 hours')`
+        `SELECT count(*) as cnt FROM bounty_events WHERE created_at > ?`
       )
-      .get() as { cnt: number };
+      .get(oneDayAgo) as { cnt: number };
 
     return NextResponse.json({
       timestamp: new Date().toISOString(),
       bounties: {
-        ...bountyStats,
-        total_reward_btc: (bountyStats.total_reward_sats / 1e8).toFixed(8),
-        paid_out_btc: (bountyStats.paid_out_sats / 1e8).toFixed(8),
+        total: bountyStats.total,
+        open: bountyStats.open,
+        in_progress: bountyStats.in_progress,
+        completed: bountyStats.completed,
+        total_reward_sats: bountyStats.total_sats,
+        total_reward_btc: (bountyStats.total_sats / 1e8).toFixed(8),
       },
       payments: {
-        ...paymentStats,
-        total_btc_settled: (paymentStats.total_sats_settled / 1e8).toFixed(8),
+        total: paymentStats.total,
+        pending: paymentStats.pending,
+        funded: paymentStats.funded,
+        paid: paymentStats.paid,
+        failed: paymentStats.failed,
+        total_volume_sats: paymentStats.totalVolumeSats,
+        total_volume_btc: (paymentStats.totalVolumeSats / 1e8).toFixed(8),
+        total_fees_sats: paymentStats.totalFeesSats,
+        total_fees_btc: (paymentStats.totalFeesSats / 1e8).toFixed(8),
       },
       api_keys: keyStats,
       toku_listings: tokuStats,
       activity_24h: {
-        payments: recentPayments.cnt,
         bounties: recentBounties.cnt,
       },
     });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : String(e) },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
