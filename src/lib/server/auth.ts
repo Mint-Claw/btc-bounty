@@ -1,13 +1,17 @@
 /**
- * API key authentication middleware for agent REST API.
- * 
- * In Phase 2, API keys are stored in env vars for simplicity.
- * Format: AGENT_API_KEYS="key1:nsec1hex,key2:nsec2hex"
- * 
- * Each key maps to a managed NOSTR secret key for server-side signing.
+ * API key authentication for agent REST API.
+ *
+ * Supports two sources (checked in order):
+ * 1. SQLite api_keys table (hashed keys, production-grade)
+ * 2. AGENT_API_KEYS env var (legacy, for quick dev setup)
+ *
+ * API keys are SHA-256 hashed before storage/lookup. The raw key
+ * is only held by the agent; we never store it in plaintext.
  */
 
+import { createHash } from "crypto";
 import { pubkeyFromNsec } from "./signing";
+import { getApiKeyByHash, touchApiKeyUsage } from "./db";
 
 export interface AgentIdentity {
   apiKey: string;
@@ -15,9 +19,44 @@ export interface AgentIdentity {
   pubkey: string;
 }
 
-/**
- * Parse AGENT_API_KEYS env var into agent identities.
- */
+// ─── SHA-256 hashing ─────────────────────────────────────────
+
+export function hashApiKey(key: string): string {
+  return createHash("sha256").update(key).digest("hex");
+}
+
+// ─── SQLite lookup ───────────────────────────────────────────
+
+function lookupFromDB(apiKey: string): AgentIdentity | null {
+  try {
+    const hash = hashApiKey(apiKey);
+    const row = getApiKeyByHash(hash);
+    if (!row) return null;
+
+    // Decrypt nsec (for now stored as hex; AES encryption is Phase 3)
+    const nsecHex = row.managed_nsec_encrypted;
+    if (!nsecHex) return null;
+
+    // Update last_used_at asynchronously
+    try {
+      touchApiKeyUsage(row.id);
+    } catch {
+      // Non-critical
+    }
+
+    return {
+      apiKey,
+      nsecHex,
+      pubkey: row.agent_npub,
+    };
+  } catch {
+    // DB not available (e.g. during testing without setup)
+    return null;
+  }
+}
+
+// ─── Env var lookup (legacy) ─────────────────────────────────
+
 function loadAgentKeys(): Map<string, AgentIdentity> {
   const raw = process.env.AGENT_API_KEYS || "";
   const map = new Map<string, AgentIdentity>();
@@ -25,10 +64,10 @@ function loadAgentKeys(): Map<string, AgentIdentity> {
   if (!raw) return map;
 
   for (const entry of raw.split(",")) {
-    const [apiKey, nsecHex] = entry.trim().split(":");
-    if (apiKey && nsecHex && nsecHex.length === 64) {
-      map.set(apiKey, {
-        apiKey,
+    const [key, nsecHex] = entry.trim().split(":");
+    if (key && nsecHex && nsecHex.length === 64) {
+      map.set(key, {
+        apiKey: key,
         nsecHex,
         pubkey: pubkeyFromNsec(nsecHex),
       });
@@ -40,29 +79,36 @@ function loadAgentKeys(): Map<string, AgentIdentity> {
 
 let cachedKeys: Map<string, AgentIdentity> | null = null;
 
-function getKeys(): Map<string, AgentIdentity> {
+function getEnvKeys(): Map<string, AgentIdentity> {
   if (!cachedKeys) cachedKeys = loadAgentKeys();
   return cachedKeys;
 }
 
+// ─── Public API ──────────────────────────────────────────────
+
 /**
  * Authenticate a request by X-API-Key header.
- * Returns the agent identity or null if unauthorized.
+ * Checks SQLite first, then falls back to env vars.
  */
 export function authenticateRequest(
   request: Request,
 ): AgentIdentity | null {
   const apiKey = request.headers.get("x-api-key");
   if (!apiKey) return null;
-  return getKeys().get(apiKey) ?? null;
+
+  // Try SQLite first
+  const dbAgent = lookupFromDB(apiKey);
+  if (dbAgent) return dbAgent;
+
+  // Fall back to env var
+  return getEnvKeys().get(apiKey) ?? null;
 }
 
 /**
  * Look up an agent identity by their NOSTR pubkey.
- * Returns the agent or null if no managed key exists for this pubkey.
  */
 export function getAgentByPubkey(pubkey: string): AgentIdentity | null {
-  for (const agent of getKeys().values()) {
+  for (const agent of getEnvKeys().values()) {
     if (agent.pubkey === pubkey) return agent;
   }
   return null;
@@ -70,11 +116,14 @@ export function getAgentByPubkey(pubkey: string): AgentIdentity | null {
 
 /**
  * Verify an API key string directly (without Request object).
- * Returns the agent identity or null if invalid.
  */
 export function verifyApiKey(apiKey: string): AgentIdentity | null {
   if (!apiKey) return null;
-  return getKeys().get(apiKey) ?? null;
+
+  const dbAgent = lookupFromDB(apiKey);
+  if (dbAgent) return dbAgent;
+
+  return getEnvKeys().get(apiKey) ?? null;
 }
 
 /**
