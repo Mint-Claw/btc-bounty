@@ -10,7 +10,7 @@ const API_DOCS = {
   openapi: "3.0.0",
   info: {
     title: "BTC Bounty API",
-    version: "0.3.0",
+    version: "0.4.0",
     description:
       "Bitcoin-native bounty platform powered by Nostr and Lightning Network.",
   },
@@ -154,6 +154,54 @@ const API_DOCS = {
         summary: "Admin statistics",
         description: "Platform statistics and metrics.",
         security: [{ apiKey: [] }],
+      },
+    },
+    "/api/admin/sync": {
+      post: {
+        summary: "Sync bounties from relays",
+        description: "Triggers relay→SQLite bounty cache sync. Use ?full=true for full sync, default incremental.",
+        security: [{ apiKey: [] }],
+      },
+    },
+    "/api/admin/expire": {
+      post: {
+        summary: "Expire stale bounties",
+        description: "Finds open bounties past expiration and marks them expired on NOSTR.",
+        security: [{ apiKey: [] }],
+      },
+    },
+    "/api/agents/register": {
+      post: {
+        summary: "Register a new agent",
+        description: "Self-service agent registration. Generates NOSTR keypair + API key. Returns raw API key once.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["name"],
+                properties: {
+                  name: { type: "string", maxLength: 100 },
+                  registrationSecret: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": { description: "Agent registered, API key returned" },
+          "403": { description: "Invalid registration secret" },
+        },
+      },
+    },
+    "/api/metrics": {
+      get: {
+        summary: "Prometheus metrics",
+        description: "Exports platform metrics in Prometheus text format. Use ?format=json for JSON. Auth required when ADMIN_SECRET is set.",
+        responses: {
+          "200": { description: "Metrics in text/plain or application/json" },
+        },
       },
     },
   },

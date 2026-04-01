@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.4.0] - 2026-04-01
+
+### Added
+- **SQLite-backed payments** — migrated from JSON file store to bounty_payments table with proper schema (v3 migration: poster_pubkey, bounty_event_id, platform_fee_sats, funded_at, settled_at, winner_lud16)
+- **Agent self-registration** — `POST /api/agents/register` generates NOSTR keypair + API key, stores hashed key in SQLite
+- **SQLite-backed auth** — API keys verified against database (with env var fallback)
+- **Cache-first bounty listing** — `GET /api/bounties` reads SQLite cache first, falls back to relay
+- **SQLite-backed RSS feed** — eliminates WebSocket relay dependency for feed endpoint
+- **Admin sync endpoint** — `POST /api/admin/sync` triggers relay→SQLite bounty cache sync
+- **Prometheus metrics** — `GET /api/metrics` exports bounty/payment/agent gauges + runtime stats
+- **Global error boundary** — branded error page for root layout crashes
+- **Structured logging** — log module with levels, context, BTCPay webhook logging
+- **Docker production fix** — better-sqlite3 native bindings compiled in build stage
+- **Smoke test script** — `scripts/smoke-test.sh` comprehensive pre-launch verification (18 checks)
+- **.env.production.example** — complete production env template with all vars documented
+- **Test DB helper** — `tests/helpers/test-db.ts` for in-memory SQLite test injection
+
+### Security
+- Admin expire endpoint now requires `x-admin-secret` auth
+- Fund endpoint rejects NaN/Infinity/float amounts (strict integer validation)
+
+### Fixed
+- Admin stats route queried non-existent DB columns → uses correct schema
+- Payment platform fee was 2.5% → corrected to 5% (per spec)
+
+### Stats
+- 523 unit tests, 51 E2E tests (574 total)
+- Build: zero warnings
+
 ## [0.3.0] - 2026-03-31
 
 ### Added
