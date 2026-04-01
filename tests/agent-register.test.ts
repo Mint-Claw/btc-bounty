@@ -71,7 +71,9 @@ describe("POST /api/agents/register", () => {
     expect(call.agentNpub).toBe("b".repeat(64));
     expect(call.apiKeyHash).toBeTruthy();
     expect(call.apiKeyHash).not.toBe(call.managedNsecEncrypted); // hash ≠ nsec
-    expect(call.managedNsecEncrypted).toBe("a".repeat(64));
+    // nsec should be AES-256-GCM encrypted (not plaintext hex)
+    expect(call.managedNsecEncrypted).not.toBe("a".repeat(64));
+    expect(call.managedNsecEncrypted.length).toBeGreaterThan(64); // encrypted is longer
   });
 
   it("defaults name to 'agent' when not provided", async () => {

@@ -15,6 +15,7 @@ import { randomBytes } from "crypto";
 import { generateKeypair, pubkeyFromNsec } from "@/lib/server/signing";
 import { hashApiKey } from "@/lib/server/auth";
 import { insertApiKey } from "@/lib/server/db";
+import { encrypt } from "@/lib/server/crypto";
 
 export async function POST(request: NextRequest) {
   // Optional gating: require a registration secret
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
       id,
       agentNpub: pubkey,
       apiKeyHash,
-      managedNsecEncrypted: nsecHex, // Phase 3: AES-256 encrypt this
+      managedNsecEncrypted: encrypt(nsecHex),
     });
   } catch (err) {
     console.error("[register] DB insert failed:", err);

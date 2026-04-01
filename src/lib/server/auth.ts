@@ -12,6 +12,7 @@
 import { createHash } from "crypto";
 import { pubkeyFromNsec } from "./signing";
 import { getApiKeyByHash, touchApiKeyUsage } from "./db";
+import { decrypt, isEncrypted } from "./crypto";
 
 export interface AgentIdentity {
   apiKey: string;
@@ -33,9 +34,17 @@ function lookupFromDB(apiKey: string): AgentIdentity | null {
     const row = getApiKeyByHash(hash);
     if (!row) return null;
 
-    // Decrypt nsec (for now stored as hex; AES encryption is Phase 3)
-    const nsecHex = row.managed_nsec_encrypted;
-    if (!nsecHex) return null;
+    // Decrypt nsec (AES-256-GCM, or legacy plaintext hex)
+    const stored = row.managed_nsec_encrypted;
+    if (!stored) return null;
+
+    let nsecHex: string;
+    try {
+      nsecHex = isEncrypted(stored) ? decrypt(stored) : stored;
+    } catch (err) {
+      console.error("[auth] Failed to decrypt managed nsec:", err);
+      return null;
+    }
 
     // Update last_used_at asynchronously
     try {
