@@ -46,7 +46,8 @@ COPY --from=deps /app/node_modules/prebuild-install ./node_modules/prebuild-inst
 COPY --from=deps /app/node_modules/file-uri-to-path ./node_modules/file-uri-to-path
 
 # Data directory for SQLite + payment tracking
-RUN mkdir -p /app/.data && chown nextjs:nodejs /app/.data
+# Default: /app/.data (Docker), override with BTCBOUNTY_DATA_DIR (e.g. /data for Fly.io volumes)
+RUN mkdir -p /app/.data /data && chown nextjs:nodejs /app/.data /data
 ENV BTCBOUNTY_DATA_DIR=/app/.data
 
 USER nextjs

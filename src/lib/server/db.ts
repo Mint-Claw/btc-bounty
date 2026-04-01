@@ -29,7 +29,7 @@ export function setDB(db: Database.Database): void {
 export function getDB(): Database.Database {
   if (_db) return _db;
 
-  const dbDir = path.resolve(process.cwd(), "data");
+  const dbDir = process.env.BTCBOUNTY_DATA_DIR || path.resolve(process.cwd(), "data");
   fs.mkdirSync(dbDir, { recursive: true });
 
   const dbPath = path.join(dbDir, "btc-bounty.db");

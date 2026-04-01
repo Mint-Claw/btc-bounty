@@ -2,7 +2,7 @@
 
 ## Status: READY TO DEPLOY ✅
 
-Code, tests (495 unit + 51 E2E = 546 total), and build are clean. Just need access.
+Code, tests (534 unit + 51 E2E = 585 total), and build are clean. Just need access.
 
 ---
 
@@ -65,6 +65,53 @@ pnpm build
 ```
 
 ⚠️ This loses: Agent API, BTCPay escrow, server-side signing.
+
+---
+
+## Option D: Fly.io (No William needed — $5/mo)
+
+### Setup (FORGE or anyone)
+```bash
+# 1. Install flyctl
+brew install flyctl   # or: curl -L https://fly.io/install.sh | sh
+
+# 2. Auth (one-time — creates account if needed)
+flyctl auth signup    # or: flyctl auth login
+
+# 3. Launch from project root (uses fly.toml)
+cd btc-bounty
+flyctl launch --copy-config --no-deploy
+
+# 4. Create persistent volume for SQLite
+flyctl volumes create btcbounty_data --size 1 --region ord
+
+# 5. Set secrets
+flyctl secrets set \
+  NEXT_PUBLIC_APP_URL=https://btc-bounty.fly.dev \
+  BTCPAY_URL=https://citadel.local \
+  BTCPAY_API_KEY=2ca41b03f56fefc1ca0a32ba5743ff783a0287c7 \
+  BTCPAY_STORE_ID=HEpsQhweBJjLVCEAV6anLFfWaaR4wtM7apV9iNkZoBCe \
+  ADMIN_SECRET=$(openssl rand -hex 32) \
+  BTCBOUNTY_DATA_DIR=/data
+
+# 6. Deploy
+flyctl deploy
+
+# 7. Verify
+flyctl status
+curl https://btc-bounty.fly.dev/api/health
+```
+
+### Costs
+- shared-cpu-1x + 512MB RAM: ~$3.50/mo
+- 1GB persistent volume: ~$0.15/mo
+- **Total: ~$5/mo** (free tier covers first machine)
+
+### Notes
+- SQLite stored on persistent volume at `/data` (survives deploys)
+- Auto-suspend on idle, auto-start on request (saves cost)
+- Chicago region (ord) — closest to CITADEL for BTCPay webhooks
+- Custom domain: `flyctl certs add btcbounty.com`
 
 ---
 
