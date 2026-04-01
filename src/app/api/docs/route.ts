@@ -24,7 +24,7 @@ const API_DOCS = {
       post: {
         summary: "Create a new bounty",
         description:
-          "Creates and publishes a bounty event. Requires X-API-Key header.",
+          "Creates and publishes a bounty event. Two modes: (1) Managed — provide X-API-Key header and bounty fields, platform signs the NOSTR event. (2) Pre-signed — submit a fully signed NIP-01 kind:30402 event with id, pubkey, sig, tags. No API key needed for pre-signed events.",
         security: [{ apiKey: [] }],
         requestBody: {
           required: true,

@@ -31,19 +31,26 @@ import {
 } from "@/lib/server/db";
 
 export async function POST(request: NextRequest) {
-  const agent = authenticateRequest(request);
-  if (!agent) {
-    return NextResponse.json(
-      { error: "Unauthorized. Provide X-API-Key header." },
-      { status: 401 },
-    );
-  }
-
   let body: Record<string, unknown>;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  // ── Mode 1: Pre-signed event (power users with own NOSTR keys) ──
+  // Submit a fully signed NIP-01 event directly. No X-API-Key needed.
+  if (body.sig && body.id && body.pubkey && body.kind) {
+    return handlePreSignedBounty(body);
+  }
+
+  // ── Mode 2: Managed signing (agent API key) ──
+  const agent = authenticateRequest(request);
+  if (!agent) {
+    return NextResponse.json(
+      { error: "Unauthorized. Provide X-API-Key header or submit a pre-signed event." },
+      { status: 401 },
+    );
   }
 
   const validation = validateBody(CreateBountySchema, body);
@@ -341,6 +348,112 @@ export async function GET(request: NextRequest) {
   } catch (e) {
     return NextResponse.json(
       { error: `Relay error: ${(e as Error).message}` },
+      { status: 502 },
+    );
+  }
+}
+
+// ── Pre-signed event handler ─────────────────────────────────
+
+import { verifyBountyEvent } from "@/lib/nostr/verify";
+
+async function handlePreSignedBounty(
+  event: Record<string, unknown>,
+): Promise<NextResponse> {
+  // Verify the event cryptographically
+  const verification = verifyBountyEvent(event);
+  if (!verification.valid) {
+    return NextResponse.json(
+      {
+        error: "Invalid pre-signed event",
+        details: verification.errors,
+        checks: verification.checks,
+      },
+      { status: 400 },
+    );
+  }
+
+  // Extract bounty metadata
+  const tags = event.tags as string[][];
+  const dTag = tags.find((t) => t[0] === "d")?.[1];
+  const title = tags.find((t) => t[0] === "title")?.[1] ||
+    tags.find((t) => t[0] === "subject")?.[1];
+  const rewardStr = tags.find((t) => t[0] === "reward")?.[1];
+  const rewardSats = rewardStr ? parseInt(rewardStr) : 0;
+  const category = tags.find((t) => t[0] === "category")?.[1] || "other";
+
+  if (!dTag || !title) {
+    return NextResponse.json(
+      { error: "Event missing required tags: d, title" },
+      { status: 400 },
+    );
+  }
+
+  try {
+    // Publish the pre-signed event as-is
+    const relayCount = await publishToRelays(event as unknown as Parameters<typeof publishToRelays>[0]);
+
+    // Cache it
+    try {
+      cacheBountyEvent({
+        id: event.id as string,
+        dTag,
+        pubkey: event.pubkey as string,
+        kind: BOUNTY_KIND,
+        title,
+        summary: tags.find((t) => t[0] === "summary")?.[1],
+        content: event.content as string,
+        rewardSats,
+        status: tags.find((t) => t[0] === "status")?.[1] || "OPEN",
+        category,
+        tags,
+        createdAt: event.created_at as number,
+      });
+    } catch { /* ignore cache write errors */ }
+
+    // Cross-list on toku.agency if above threshold
+    if (shouldListOnToku(rewardSats)) {
+      const tokuSync = new TokuSyncService();
+      tokuSync.listBounty({
+        id: event.id as string,
+        pubkey: event.pubkey as string,
+        dTag,
+        title,
+        content: event.content as string,
+        rewardSats,
+        category,
+        tags: tags.filter((t) => t[0] === "t").map((t) => t[1]),
+        status: "OPEN",
+        createdAt: event.created_at as number,
+      } as any).catch((e: Error) => {
+        console.error("[bounty] toku.agency listing failed:", e.message);
+      });
+    }
+
+    // Fire webhook
+    deliverWebhook("bounty.created", {
+      id: event.id as string,
+      pubkey: event.pubkey as string,
+      dTag,
+      title,
+      reward_sats: rewardSats,
+      category,
+      preSigned: true,
+    });
+
+    return NextResponse.json(
+      {
+        id: event.id as string,
+        pubkey: event.pubkey as string,
+        dTag,
+        relaysPublished: relayCount,
+        preSigned: true,
+      },
+      { status: 201 },
+    );
+  } catch (e) {
+    return NextResponse.json(
+      { error: `Failed to publish: ${(e as Error).message}` },
       { status: 502 },
     );
   }
