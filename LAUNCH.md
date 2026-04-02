@@ -1,6 +1,6 @@
 # 🚀 BTC-Bounty Launch Guide
 
-**Status:** Code complete. 534 unit + 51 E2E = 585 tests. Build clean.
+**Status:** Code complete. 554 unit + 51 E2E = 605 tests. Build clean.
 **Blocked on:** One credential from William (any of the 3 options below).
 
 ---
