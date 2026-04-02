@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCachedBounty, type BountyEventRow } from "@/lib/server/db";
+import { getCachedBounty, getApplicationsForBounty, type BountyEventRow } from "@/lib/server/db";
 import { getPaymentByBountyId } from "@/lib/server/payments";
 
 /**
@@ -12,6 +12,7 @@ import { getPaymentByBountyId } from "@/lib/server/payments";
 function enrichBounty(
   row: BountyEventRow,
   payment?: { status: string; funded: boolean; paid: boolean } | null,
+  applicationCount?: number,
 ) {
   const now = Math.floor(Date.now() / 1000);
   const ageSeconds = now - row.created_at;
@@ -30,6 +31,7 @@ function enrichBounty(
     age_label: ageLabel,
     tags: row.tags_json ? JSON.parse(row.tags_json) : null,
     payment: payment || null,
+    application_count: applicationCount ?? 0,
   };
 }
 
@@ -64,7 +66,15 @@ export async function GET(
       // Payment lookup failure shouldn't break bounty detail
     }
 
-    return NextResponse.json(enrichBounty(bounty, paymentInfo));
+    // Get application count
+    let appCount = 0;
+    try {
+      appCount = getApplicationsForBounty(id).length;
+    } catch {
+      // Non-fatal
+    }
+
+    return NextResponse.json(enrichBounty(bounty, paymentInfo, appCount));
   } catch (error) {
     console.error("Failed to get bounty detail:", error);
     return NextResponse.json(
