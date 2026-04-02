@@ -41,7 +41,9 @@ export default function DocsPage() {
   useEffect(() => {
     fetch("/api/docs")
       .then((r) => r.json())
-      .then(setDocs)
+      .then((data) => {
+        if (data?.paths) setDocs(data);
+      })
       .catch(console.error);
   }, []);
 
@@ -53,7 +55,7 @@ export default function DocsPage() {
     );
   }
 
-  const paths = Object.entries(docs.paths);
+  const paths = Object.entries(docs.paths ?? {});
 
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -88,7 +90,7 @@ export default function DocsPage() {
         {/* Endpoints */}
         <div className="space-y-3">
           {paths.map(([path, methods]) =>
-            Object.entries(methods).map(([method, info]) => {
+            Object.entries(methods ?? {}).map(([method, info]) => {
               const key = `${method}:${path}`;
               const isExpanded = expandedPath === key;
               const requiresAuth = info.security && info.security.length > 0;
@@ -126,7 +128,7 @@ export default function DocsPage() {
                             Request Body
                           </h4>
                           <div className="bg-zinc-950 border border-zinc-800 rounded p-3 font-mono text-xs space-y-1">
-                            {Object.entries(schema.properties).map(([prop, propInfo]) => {
+                            {Object.entries(schema.properties ?? {}).map(([prop, propInfo]) => {
                               const isRequired = schema.required?.includes(prop);
                               return (
                                 <div key={prop} className="flex items-center gap-2">

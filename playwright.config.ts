@@ -10,7 +10,7 @@ export default defineConfig({
   timeout: 30_000,
 
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3457",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
@@ -23,9 +23,13 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
+    command: "PORT=3457 node .next/standalone/server.js",
+    url: "http://localhost:3457",
+    reuseExistingServer: true,
     timeout: 30_000,
+    env: {
+      ENCRYPTION_SECRET: "btcbounty-dev-2026",
+      BTCBOUNTY_DATA_DIR: "./data",
+    },
   },
 });

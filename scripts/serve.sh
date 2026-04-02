@@ -17,6 +17,11 @@ if [ ! -f .next/standalone/server.js ]; then
   exit 1
 fi
 
+# Copy static assets into standalone (Next.js standalone doesn't include them)
+echo "📦 Copying static assets..."
+cp -r .next/static .next/standalone/.next/static 2>/dev/null || true
+cp -r public .next/standalone/public 2>/dev/null || true
+
 echo "🚀 Starting server on port ${PORT:-3457}..."
 
 # Source local env vars if available
