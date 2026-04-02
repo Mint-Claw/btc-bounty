@@ -38,7 +38,7 @@ export async function GET() {
 
   return NextResponse.json({
     status: relaySummary.healthy && dbStatus.ok ? "ok" : "degraded",
-    version: process.env.npm_package_version || "0.1.0",
+    version: process.env.APP_VERSION || process.env.npm_package_version || "0.4.0",
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     btcpay: {

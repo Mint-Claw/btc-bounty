@@ -1,9 +1,16 @@
 import type { NextConfig } from "next";
+import { readFileSync } from "fs";
+
+// Bake version at build time so standalone server reports correct version
+const pkg = JSON.parse(readFileSync("./package.json", "utf-8"));
 
 const nextConfig: NextConfig = {
   output: "standalone",
   // Ensure native modules (better-sqlite3) are bundled in standalone output
   serverExternalPackages: ["better-sqlite3"],
+  env: {
+    APP_VERSION: pkg.version,
+  },
   async headers() {
     return [
       {

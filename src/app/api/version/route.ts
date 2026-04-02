@@ -9,7 +9,7 @@ import { NextResponse } from "next/server";
 export async function GET() {
   return NextResponse.json({
     name: "btc-bounty",
-    version: process.env.npm_package_version || "0.2.0",
+    version: process.env.APP_VERSION || process.env.npm_package_version || "0.4.0",
     description: "Bitcoin bounty platform on Nostr",
     node: process.version,
     uptime: Math.floor(process.uptime()),
