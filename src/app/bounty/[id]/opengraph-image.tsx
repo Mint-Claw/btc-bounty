@@ -13,7 +13,7 @@ export default async function Image({
   const { id } = await params;
 
   // Try to fetch bounty data
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3457";
   let title = "Bounty";
   let reward = "";
   let status = "OPEN";

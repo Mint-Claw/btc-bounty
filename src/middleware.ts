@@ -88,7 +88,7 @@ export function middleware(request: NextRequest) {
   // CORS headers for API routes
   const origin = request.headers.get("origin") || "";
   const allowedOrigins = (
-    process.env.CORS_ORIGINS || "https://mintclaw.dev,http://localhost:3000"
+    process.env.CORS_ORIGINS || "https://mintclaw.dev,http://localhost:3457,http://localhost:3000"
   ).split(",");
 
   if (allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {

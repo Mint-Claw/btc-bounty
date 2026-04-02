@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
       message: "Save your API key — it cannot be retrieved later.",
       usage: {
         header: "X-API-Key",
-        example: `curl -H "X-API-Key: ${apiKey}" ${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/bounties`,
+        example: `curl -H "X-API-Key: ${apiKey}" ${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3457"}/api/bounties`,
       },
     },
     { status: 201 },
