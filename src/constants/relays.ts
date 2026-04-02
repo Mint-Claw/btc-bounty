@@ -1,6 +1,6 @@
 export const DEFAULT_RELAYS = (
   process.env.NEXT_PUBLIC_RELAYS ||
-  "wss://relay.damus.io,wss://relay.nostr.band,wss://nos.lol,wss://relay.snort.social"
+  "wss://relay.damus.io,wss://relay.primal.net,wss://nos.lol,wss://relay.snort.social"
 )
   .split(",")
   .map((r) => r.trim());
