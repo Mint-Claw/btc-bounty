@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
+// Use APP_URL env, Vercel URL, or fallback domain for OG image URLs
+const baseUrl = process.env.APP_URL
+  || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
+  || "https://btc-bounty.io";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(baseUrl),
   title: "BTC-Bounty — Bitcoin-native bounties on NOSTR",
   description:
     "Post work, get paid in sats. A decentralized bounty platform built on NOSTR with Lightning payments.",

@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["better-sqlite3"],
   env: {
     APP_VERSION: pkg.version,
+    // Propagate APP_URL to NEXT_PUBLIC_APP_URL for client-side + sitemap/robots
+    NEXT_PUBLIC_APP_URL: process.env.APP_URL || "",
   },
   async headers() {
     return [
