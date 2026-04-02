@@ -18,6 +18,14 @@ if [ ! -f .next/standalone/server.js ]; then
 fi
 
 echo "🚀 Starting server on port ${PORT:-3457}..."
+
+# Source local env vars if available
+if [ -f .env.local ]; then
+  set -a
+  source .env.local
+  set +a
+fi
+
 ENCRYPTION_SECRET="${ENCRYPTION_SECRET:-btcbounty-dev-2026}" \
 PORT="${PORT:-3457}" \
 node .next/standalone/server.js > /tmp/btc-bounty.log 2>&1 &
