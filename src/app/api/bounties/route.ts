@@ -141,14 +141,35 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Cache the bounty in SQLite
+    try {
+      cacheBountyEvent({
+        id: signed.id,
+        dTag,
+        pubkey: signed.pubkey,
+        kind: BOUNTY_KIND,
+        title,
+        summary: summary || undefined,
+        content,
+        rewardSats,
+        status: "OPEN",
+        category: (category as string) || "other",
+        lightning,
+        tags: eventTags,
+        createdAt: signed.created_at,
+      });
+    } catch (cacheErr) {
+      console.error("[bounty POST] Cache write failed:", cacheErr);
+    }
+
     // Fire webhook notification (async, non-blocking)
     deliverWebhook("bounty.created", {
       id: signed.id,
       pubkey: signed.pubkey,
       dTag,
-      title: body.title,
-      reward_sats: body.reward_sats,
-      category: body.category,
+      title,
+      reward_sats: rewardSats,
+      category,
     });
 
     return NextResponse.json(
@@ -409,7 +430,9 @@ async function handlePreSignedBounty(
         tags,
         createdAt: event.created_at as number,
       });
-    } catch { /* ignore cache write errors */ }
+    } catch (cacheErr) {
+      console.error("[bounties POST] Cache write failed:", cacheErr);
+    }
 
     // Cross-list on toku.agency if above threshold
     if (shouldListOnToku(rewardSats)) {
