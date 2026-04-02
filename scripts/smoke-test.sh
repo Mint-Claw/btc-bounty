@@ -22,10 +22,10 @@ check() {
   status=$(curl -sf -o /dev/null -w "%{http_code}" "$url" 2>/dev/null || echo "000")
   if [[ "$status" == "$expected" ]]; then
     green "$name (HTTP $status)"
-    ((PASS++))
+    PASS=$((PASS+1))
   else
     red "$name — expected $expected, got $status"
-    ((FAIL++))
+    FAIL=$((FAIL+1))
   fi
 }
 
@@ -35,10 +35,10 @@ check_json() {
   result=$(curl -sf "$url" 2>/dev/null | jq -r "$jq_filter" 2>/dev/null || echo "ERROR")
   if [[ "$result" == "$expected" ]]; then
     green "$name ($result)"
-    ((PASS++))
+    PASS=$((PASS+1))
   else
     red "$name — expected '$expected', got '$result'"
-    ((FAIL++))
+    FAIL=$((FAIL+1))
   fi
 }
 
@@ -63,24 +63,24 @@ check "Bounty list (GET)"  "$BASE_URL/api/bounties"
 check "Bounty stats"       "$BASE_URL/api/bounties/stats"
 check "Payment status"     "$BASE_URL/api/payments/status?bountyIds=test"
 check "RSS feed"           "$BASE_URL/api/bounties/feed"
-check "Relay status"       "$BASE_URL/api/relays"
+check "Relay status"       "$BASE_URL/api/relays/status"
 
 # ── Auth enforcement ────────────────────────────
 echo ""
 echo "── Auth ──"
-check "POST bounty → 401" "$BASE_URL/api/bounties" "401"
+# POST auth enforcement checked below
 
 # Verify POST returns 401 (not 405 or 500)
-AUTH_STATUS=$(curl -sf -o /dev/null -w "%{http_code}" -X POST \
+AUTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
   -H "Content-Type: application/json" \
   -d '{"title":"test"}' \
-  "$BASE_URL/api/bounties" 2>/dev/null || echo "000")
+  "$BASE_URL/api/bounties" 2>/dev/null)
 if [[ "$AUTH_STATUS" == "401" ]]; then
   green "POST /api/bounties enforces auth (401)"
-  ((PASS++))
+  PASS=$((PASS+1))
 else
   red "POST /api/bounties auth check — expected 401, got $AUTH_STATUS"
-  ((FAIL++))
+  FAIL=$((FAIL+1))
 fi
 
 # ── Health details ──────────────────────────────
@@ -93,29 +93,29 @@ DB_OK=$(echo "$HEALTH" | jq -r '.database.ok' 2>/dev/null || echo "false")
 if [[ "$DB_OK" == "true" ]]; then
   TABLES=$(echo "$HEALTH" | jq -r '.database.tables' 2>/dev/null)
   green "SQLite database OK ($TABLES tables)"
-  ((PASS++))
+  PASS=$((PASS+1))
 else
   red "SQLite database NOT OK"
-  ((FAIL++))
+  FAIL=$((FAIL+1))
 fi
 
 BTCPAY_OK=$(echo "$HEALTH" | jq -r '.btcpay.connected' 2>/dev/null || echo "false")
 if [[ "$BTCPAY_OK" == "true" ]]; then
   green "BTCPay Server connected"
-  ((PASS++))
+  PASS=$((PASS+1))
 else
   yellow "BTCPay Server not connected (escrow disabled)"
-  ((WARN++))
+  WARN=$((WARN+1))
 fi
 
-RELAY_CONNECTED=$(echo "$HEALTH" | jq -r '.nostr.connected' 2>/dev/null || echo "0")
+RELAY_CONNECTED=$(echo "$HEALTH" | jq -r '.nostr.online // 0' 2>/dev/null || echo "0")
 RELAY_TOTAL=$(echo "$HEALTH" | jq -r '.nostr.total' 2>/dev/null || echo "0")
 if [[ "$RELAY_CONNECTED" -gt 0 ]]; then
   green "NOSTR relays: $RELAY_CONNECTED/$RELAY_TOTAL connected"
-  ((PASS++))
+  PASS=$((PASS+1))
 else
   red "No NOSTR relays connected"
-  ((FAIL++))
+  FAIL=$((FAIL+1))
 fi
 
 # ── SEO ─────────────────────────────────────────
@@ -128,10 +128,10 @@ check "sitemap.xml" "$BASE_URL/sitemap.xml"
 OG_STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "$BASE_URL/opengraph-image" 2>/dev/null || echo "000")
 if [[ "$OG_STATUS" == "200" ]]; then
   green "OG image generates"
-  ((PASS++))
+  PASS=$((PASS+1))
 else
   yellow "OG image not available ($OG_STATUS)"
-  ((WARN++))
+  WARN=$((WARN+1))
 fi
 
 # ── Summary ─────────────────────────────────────
