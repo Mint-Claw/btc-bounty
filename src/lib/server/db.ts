@@ -140,6 +140,29 @@ function migrate(db: Database.Database): void {
       INSERT INTO schema_version (version) VALUES (2);
     `);
   }
+
+  if (current.v < 4) {
+    db.exec(`
+      -- Bounty applications (stored locally, not on relays)
+      CREATE TABLE IF NOT EXISTS bounty_applications (
+        id TEXT PRIMARY KEY,
+        bounty_d_tag TEXT NOT NULL,
+        bounty_event_id TEXT,
+        applicant_pubkey TEXT NOT NULL,
+        pitch TEXT NOT NULL,
+        lightning TEXT,
+        status TEXT DEFAULT 'pending',  -- pending, accepted, rejected
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_applications_bounty ON bounty_applications(bounty_d_tag);
+      CREATE INDEX IF NOT EXISTS idx_applications_applicant ON bounty_applications(applicant_pubkey);
+      CREATE INDEX IF NOT EXISTS idx_applications_status ON bounty_applications(status);
+
+      INSERT INTO schema_version (version) VALUES (4);
+    `);
+  }
 }
 
 // ─── Toku Listing Queries ────────────────────────────────────
@@ -446,4 +469,60 @@ export function updateBountyStatus(dTag: string, status: string, winnerPubkey?: 
     WHERE d_tag = ?
   `).run(status, winnerPubkey || null, dTag);
   return result.changes > 0;
+}
+
+// ─── Application Queries ─────────────────────────────────────
+
+export interface ApplicationRow {
+  id: string;
+  bounty_d_tag: string;
+  bounty_event_id: string | null;
+  applicant_pubkey: string;
+  pitch: string;
+  lightning: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function insertApplication(app: {
+  id: string;
+  bountyDTag: string;
+  bountyEventId?: string;
+  applicantPubkey: string;
+  pitch: string;
+  lightning?: string;
+}): void {
+  const db = getDB();
+  db.prepare(`
+    INSERT INTO bounty_applications (id, bounty_d_tag, bounty_event_id, applicant_pubkey, pitch, lightning)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(app.id, app.bountyDTag, app.bountyEventId || null, app.applicantPubkey, app.pitch, app.lightning || null);
+}
+
+export function getApplicationsForBounty(bountyDTag: string): ApplicationRow[] {
+  const db = getDB();
+  return db.prepare(
+    "SELECT * FROM bounty_applications WHERE bounty_d_tag = ? ORDER BY created_at DESC"
+  ).all(bountyDTag) as ApplicationRow[];
+}
+
+export function getApplication(id: string): ApplicationRow | undefined {
+  const db = getDB();
+  return db.prepare("SELECT * FROM bounty_applications WHERE id = ?").get(id) as ApplicationRow | undefined;
+}
+
+export function updateApplicationStatus(id: string, status: string): boolean {
+  const db = getDB();
+  const result = db.prepare(
+    "UPDATE bounty_applications SET status = ?, updated_at = datetime('now') WHERE id = ?"
+  ).run(status, id);
+  return result.changes > 0;
+}
+
+export function getApplicationsByApplicant(pubkey: string): ApplicationRow[] {
+  const db = getDB();
+  return db.prepare(
+    "SELECT * FROM bounty_applications WHERE applicant_pubkey = ? ORDER BY created_at DESC"
+  ).all(pubkey) as ApplicationRow[];
 }

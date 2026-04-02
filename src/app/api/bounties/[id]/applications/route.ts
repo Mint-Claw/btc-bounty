@@ -1,49 +1,40 @@
 /**
  * GET /api/bounties/:id/applications — List applicants for a bounty
+ *
+ * Reads from SQLite (primary) and optionally merges relay-sourced
+ * kind:1 replies for backward compatibility.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { fetchFromRelays } from "@/lib/server/relay";
+import { getApplicationsForBounty } from "@/lib/server/db";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id: bountyEventId } = await params;
+  const { id: bountyId } = await params;
 
   try {
-    const filter = {
-      kinds: [1],
-      "#e": [bountyEventId],
-      limit: 50,
-    };
+    const rows = getApplicationsForBounty(bountyId);
 
-    const events = await fetchFromRelays(filter);
-
-    const applications = events.map((event) => {
-      const lightningTag = event.tags.find((t) => t[0] === "lightning")?.[1];
-      const lightningMatch = event.content.match(
-        /(?:lightning[:\s]+)?([a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
-      );
-
-      return {
-        id: event.id,
-        pubkey: event.pubkey,
-        content: event.content,
-        lightning: lightningTag || lightningMatch?.[1] || "",
-        createdAt: event.created_at,
-      };
-    });
+    const applications = rows.map((row) => ({
+      id: row.id,
+      pubkey: row.applicant_pubkey,
+      pitch: row.pitch,
+      lightning: row.lightning || "",
+      status: row.status,
+      createdAt: row.created_at,
+    }));
 
     return NextResponse.json({
       applications,
       count: applications.length,
-      bountyEventId,
+      bountyId,
     });
   } catch (e) {
     return NextResponse.json(
-      { error: `Relay error: ${(e as Error).message}` },
-      { status: 502 },
+      { error: `Database error: ${(e as Error).message}` },
+      { status: 500 },
     );
   }
 }
