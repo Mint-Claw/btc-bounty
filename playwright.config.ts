@@ -22,14 +22,6 @@ export default defineConfig({
     },
   ],
 
-  webServer: {
-    command: "PORT=3457 node .next/standalone/server.js",
-    url: "http://localhost:3457",
-    reuseExistingServer: true,
-    timeout: 30_000,
-    env: {
-      ENCRYPTION_SECRET: "btcbounty-dev-2026",
-      BTCBOUNTY_DATA_DIR: "./data",
-    },
-  },
+  // Server must be running on :3457 before tests (via serve.sh or launchd)
+
 });
