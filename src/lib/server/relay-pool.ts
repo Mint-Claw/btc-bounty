@@ -166,9 +166,10 @@ class RelayPool {
           h.consecutiveFailures = 0;
           this.recordLatency(url, Date.now() - start);
           published++;
-        } catch {
+        } catch (err) {
           h.consecutiveFailures++;
           h.lastFailure = Date.now();
+          console.error(`[relay] Publish to ${url} failed:`, err instanceof Error ? err.message : err);
           // Connection may be dead — remove so it reconnects
           this.connections.delete(url);
           h.connected = false;
