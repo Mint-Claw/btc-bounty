@@ -48,29 +48,15 @@ UPTIME=$(curl -s http://localhost:${PORT:-3457}/api/health | python3 -c "import 
 echo "✅ Server running (PID: $SERVER_PID, uptime: $UPTIME)"
 
 # Start Cloudflare tunnel
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 if command -v cloudflared &> /dev/null; then
-  echo "🌐 Starting Cloudflare tunnel..."
-  npx cloudflared tunnel --url http://localhost:${PORT:-3457} 2>/tmp/cf-tunnel.log &
-  sleep 12
-  TUNNEL=$(grep -o 'https://[^ ]*trycloudflare.com' /tmp/cf-tunnel.log | head -1)
-  if [ -n "$TUNNEL" ]; then
-    echo "✅ Tunnel: $TUNNEL"
-  else
-    echo "⚠️  Tunnel may still be connecting. Check /tmp/cf-tunnel.log"
-  fi
+  "$SCRIPT_DIR/tunnel.sh" start
 else
   echo "ℹ️  cloudflared not found — skipping tunnel"
 fi
 
 echo ""
-echo "📊 Status:"
-curl -s http://localhost:${PORT:-3457}/api/health | python3 -c "
-import sys,json
-d=json.load(sys.stdin)
-print(f'  DB: {d[\"database\"][\"tables\"]} tables')
-print(f'  Relays: {d[\"nostr\"][\"online\"]}/{d[\"nostr\"][\"total\"]} online')
-print(f'  BTCPay: {\"connected\" if d[\"btcpay\"][\"connected\"] else \"not configured\"}')" 2>/dev/null || true
-
+echo "📊 Full Status:"
+"$SCRIPT_DIR/tunnel.sh" status
 echo ""
 echo "Server log: /tmp/btc-bounty.log"
-echo "Tunnel log: /tmp/cf-tunnel.log"
