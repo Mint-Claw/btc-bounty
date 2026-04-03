@@ -47,6 +47,49 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default function BountyLayout({ children }: Props) {
-  return <>{children}</>;
+export default async function BountyLayout({ params, children }: Props) {
+  const { id } = await params;
+  let jsonLd = null;
+
+  try {
+    const bounty = getCachedBounty(id);
+    if (bounty?.title) {
+      const baseUrl = process.env.APP_URL
+        || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
+        || "https://btc-bounty.io";
+
+      jsonLd = {
+        "@context": "https://schema.org",
+        "@type": "CreativeWork",
+        name: bounty.title,
+        description: bounty.content?.slice(0, 300) || "",
+        url: `${baseUrl}/bounty/${id}`,
+        dateCreated: bounty.created_at,
+        author: { "@type": "Person", identifier: bounty.pubkey },
+        ...(bounty.status === "OPEN" && {
+          offers: {
+            "@type": "Offer",
+            price: String(bounty.reward_sats || 0),
+            priceCurrency: "SAT",
+            availability: "https://schema.org/InStock",
+          },
+        }),
+        keywords: bounty.category || "code",
+      };
+    }
+  } catch {
+    // Silently skip JSON-LD if DB read fails
+  }
+
+  return (
+    <>
+      {jsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      )}
+      {children}
+    </>
+  );
 }

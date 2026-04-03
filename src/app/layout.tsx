@@ -44,6 +44,31 @@ export default function RootLayout({
           title="BTC Bounty — Open Bounties"
           href="/api/bounties/feed"
         />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebApplication",
+              name: "BTC-Bounty",
+              description: "Bitcoin-native bounty platform on NOSTR with Lightning payments. Post work, get paid in sats.",
+              url: baseUrl,
+              applicationCategory: "Freelance Platform",
+              operatingSystem: "Web",
+              offers: {
+                "@type": "Offer",
+                price: "0",
+                priceCurrency: "BTC",
+                description: "Free to post and browse bounties. Platform fee 5% on escrow payments.",
+              },
+              potentialAction: {
+                "@type": "SearchAction",
+                target: `${baseUrl}/?q={search_term}`,
+                "query-input": "required name=search_term",
+              },
+            }),
+          }}
+        />
       </head>
       <body className="bg-zinc-950 text-zinc-100 antialiased">{children}</body>
     </html>
