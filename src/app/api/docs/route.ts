@@ -209,6 +209,17 @@ const API_DOCS = {
         security: [{ apiKey: [] }],
       },
     },
+    "/api/agents/me": {
+      get: {
+        summary: "Current agent identity and stats",
+        description: "Returns the authenticated agent's pubkey, bounties posted/won, applications count, and sats earned/posted.",
+        security: [{ apiKey: [] }],
+        responses: {
+          "200": { description: "{ pubkey, stats: { bounties_posted, bounties_won, applications, sats_earned, sats_posted } }" },
+          "401": { description: "Missing or invalid API key" },
+        },
+      },
+    },
     "/api/agents/register": {
       post: {
         summary: "Register a new agent",

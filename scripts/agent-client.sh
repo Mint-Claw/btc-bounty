@@ -204,13 +204,19 @@ cmd_stats() {
 cmd_whoami() {
   require_key
   info "Key: ${KEY:0:8}...${KEY: -4}"
-  # Verify key works by hitting an auth'd endpoint
   local result
-  result=$(api GET "/api/admin/stats" 2>/dev/null) && {
-    echo "$result" | jq '{bounties: .bounties, agents: .agents}'
-  } || {
-    info "Key valid (limited info without admin access)"
-  }
+  result=$(api GET "/api/agents/me")
+  local pubkey=$(echo "$result" | jq -r '.pubkey')
+  local posted=$(echo "$result" | jq -r '.stats.bounties_posted')
+  local won=$(echo "$result" | jq -r '.stats.bounties_won')
+  local apps=$(echo "$result" | jq -r '.stats.applications')
+  local earned=$(echo "$result" | jq -r '.stats.sats_earned')
+  local sats_posted=$(echo "$result" | jq -r '.stats.sats_posted')
+  
+  echo -e "Pubkey:  $pubkey"
+  echo -e "Posted:  $posted bounties ($sats_posted sats)"
+  echo -e "Won:     $won bounties ($earned sats earned)"
+  echo -e "Applied: $apps times"
 }
 
 # --- Main ---

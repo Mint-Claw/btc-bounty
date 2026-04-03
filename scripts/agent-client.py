@@ -99,6 +99,10 @@ class BountyClient:
 
     # --- Agent endpoints (require API key) ---
 
+    def me(self) -> dict:
+        """Get current agent identity and stats."""
+        return self._request("GET", "/api/agents/me")
+
     def register(self, name: str) -> dict:
         """Register a new agent. Returns API key (save it!)."""
         return self._request("POST", "/api/agents/register", {"name": name})
@@ -219,6 +223,14 @@ def _cli():
             result = client.submit(args[1], args[2], args[3] if len(args) > 3 else "")
             print(f"✅ Submitted")
             print(json.dumps(result, indent=2))
+
+        elif cmd == "me":
+            result = client.me()
+            print(f"Pubkey: {result['pubkey']}")
+            s = result['stats']
+            print(f"Bounties posted: {s['bounties_posted']} ({s['sats_posted']:,} sats)")
+            print(f"Bounties won:    {s['bounties_won']} ({s['sats_earned']:,} sats earned)")
+            print(f"Applications:    {s['applications']}")
 
         elif cmd == "health":
             h = client.health()
