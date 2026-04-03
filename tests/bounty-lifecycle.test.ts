@@ -140,9 +140,20 @@ vi.mock("@/lib/server/btcpay", () => ({
 }));
 
 // Mock rate limit
-vi.mock("@/lib/server/rate-limit", () => ({
-	checkRateLimit: vi.fn().mockReturnValue({ allowed: true, remaining: 10 }),
-}));
+vi.mock("@/lib/server/rate-limit", () => {
+	const mockLimiter = {
+		check: () => ({ ok: true, remaining: 99, resetMs: 60000, total: 1 }),
+		reset: () => {},
+		get size() { return 0; },
+	};
+	return {
+		checkRateLimit: vi.fn().mockReturnValue({ allowed: true, remaining: 10 }),
+		createRateLimiter: () => mockLimiter,
+		apiLimiter: mockLimiter,
+		authLimiter: mockLimiter,
+		webhookLimiter: mockLimiter,
+	};
+});
 
 // Mock env validation
 vi.mock("@/lib/server/validate-env", () => ({

@@ -7,6 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { apiLimiter } from "@/lib/server/rate-limit";
 import { authenticateRequest } from "@/lib/server/auth";
 import { signEventServer } from "@/lib/server/signing";
 import { publishToRelays, fetchFromRelays } from "@/lib/server/relay";
@@ -31,6 +32,17 @@ import {
 } from "@/lib/server/db";
 
 export async function POST(request: NextRequest) {
+  // Rate limit: 60 requests/min per IP
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    || request.headers.get("x-real-ip") || "unknown";
+  const { ok: rateOk, resetMs } = apiLimiter.check(ip);
+  if (!rateOk) {
+    return NextResponse.json(
+      { error: "Too many requests. Try again later." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(resetMs / 1000)) } },
+    );
+  }
+
   let body: Record<string, unknown>;
   try {
     body = await request.json();
