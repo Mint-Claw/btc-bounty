@@ -99,6 +99,17 @@ class BountyClient:
 
     # --- Agent endpoints (require API key) ---
 
+    def search(self, query: str, status: str = "", limit: int = 20) -> dict:
+        """Full-text search bounties."""
+        params = f"?q={urllib.parse.quote(query)}&limit={limit}"
+        if status:
+            params += f"&status={status}"
+        return self._request("GET", f"/api/bounties/search{params}")
+
+    def categories(self) -> list[dict]:
+        """List bounty categories with counts."""
+        return self._request("GET", "/api/bounties/categories").get("categories", [])
+
     def me(self) -> dict:
         """Get current agent identity and stats."""
         return self._request("GET", "/api/agents/me")
@@ -223,6 +234,25 @@ def _cli():
             result = client.submit(args[1], args[2], args[3] if len(args) > 3 else "")
             print(f"✅ Submitted")
             print(json.dumps(result, indent=2))
+
+        elif cmd == "search":
+            query = args[1] if len(args) > 1 else ""
+            if not query:
+                print("Usage: agent-client.py search <query> [--open]")
+                sys.exit(1)
+            status = "OPEN" if "--open" in args else ""
+            result = client.search(query, status=status)
+            print(f"Found {result['count']} results for '{result['query']}':")
+            for b in result.get("results", []):
+                sats = f"⚡{b['reward_sats']:,}" if b.get('reward_sats') else "no reward"
+                print(f"  [{b['d_tag'][:8]}] {b['title']} ({sats}) [{b.get('category', '?')}]")
+
+        elif cmd == "categories":
+            cats = client.categories()
+            print(f"{'Category':<20} {'Open':>6} {'Total Sats':>12}")
+            print("-" * 40)
+            for c in cats:
+                print(f"{c['name']:<20} {c['open_bounties']:>6} {c['total_sats']:>12,}")
 
         elif cmd == "me":
             result = client.me()

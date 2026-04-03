@@ -179,6 +179,24 @@ cmd_submit() {
   echo "$result" | jq '.'
 }
 
+urlencode() {
+  python3 -c "import urllib.parse; print(urllib.parse.quote('$1'))" 2>/dev/null || echo "$1"
+}
+
+cmd_search() {
+  local query="$1"
+  [[ -z "$query" ]] && die "Usage: $0 search <query> [--open]"
+  local params="q=$(urlencode "$query")"
+  [[ "$2" == "--open" ]] && params="$params&status=OPEN"
+  local result
+  result=$(api GET "/api/bounties/search?$params")
+  echo "$result" | jq -r '.results[] | "[\(.d_tag[:8])] \(.title) (⚡\(.reward_sats)) [\(.category)]"'
+}
+
+cmd_categories() {
+  api GET "/api/bounties/categories" | jq -r '.categories[] | "\(.name)\t\(.open_bounties) open\t\(.total_sats) sats"' | column -t
+}
+
 cmd_health() {
   local result
   result=$(api GET "/api/health")
@@ -223,6 +241,8 @@ cmd_whoami() {
 require_jq
 
 case "${1:-help}" in
+  search)   shift; cmd_search "$@" ;;
+  categories|cats) cmd_categories ;;
   register) shift; cmd_register "$@" ;;
   list|ls)  shift; cmd_list "$@" ;;
   get)      shift; cmd_get "$@" ;;
