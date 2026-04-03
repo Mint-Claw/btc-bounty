@@ -10,7 +10,7 @@ const API_DOCS = {
   openapi: "3.0.0",
   info: {
     title: "BTC Bounty API",
-    version: "0.4.0",
+    version: "0.5.0",
     description:
       "Bitcoin-native bounty platform powered by Nostr and Lightning Network.",
   },
@@ -18,8 +18,16 @@ const API_DOCS = {
     "/api/bounties": {
       get: {
         summary: "List open bounties",
-        description: "Fetches bounty events from configured Nostr relays.",
-        responses: { "200": { description: "Array of bounty objects" } },
+        description: "Fetches bounty events from SQLite cache (instant) or Nostr relays. Supports pagination, filtering, and text search.",
+        parameters: [
+          { name: "status", in: "query", schema: { type: "string", enum: ["OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED"] } },
+          { name: "category", in: "query", schema: { type: "string", enum: ["code", "design", "writing", "research", "testing", "devops", "other"] } },
+          { name: "q", in: "query", schema: { type: "string" }, description: "Text search in title/content" },
+          { name: "min_reward", in: "query", schema: { type: "integer" }, description: "Minimum reward in sats" },
+          { name: "limit", in: "query", schema: { type: "integer", default: 50, maximum: 200 }, description: "Max results" },
+          { name: "offset", in: "query", schema: { type: "integer", default: 0 }, description: "Pagination offset" },
+        ],
+        responses: { "200": { description: "Paginated bounty list with bounties[], total, count, hasMore, limit, offset" } },
       },
       post: {
         summary: "Create a new bounty",
@@ -129,6 +137,37 @@ const API_DOCS = {
     },
     "/api/version": {
       get: { summary: "API version", description: "Returns current API version." },
+    },
+    "/api/bounties/cached": {
+      get: {
+        summary: "List cached bounties (recommended for agents)",
+        description: "Reads from local SQLite cache — instant response, no relay calls. Supports pagination, filtering, and text search.",
+        parameters: [
+          { name: "status", in: "query", schema: { type: "string" }, description: "Filter by status (OPEN, IN_PROGRESS, COMPLETED, CANCELLED)" },
+          { name: "category", in: "query", schema: { type: "string" }, description: "Filter by category" },
+          { name: "min_reward", in: "query", schema: { type: "integer" }, description: "Minimum reward in sats" },
+          { name: "q", in: "query", schema: { type: "string" }, description: "Text search" },
+          { name: "d_tag", in: "query", schema: { type: "string" }, description: "Get single bounty by d-tag" },
+          { name: "limit", in: "query", schema: { type: "integer", default: 50, maximum: 200 } },
+          { name: "offset", in: "query", schema: { type: "integer", default: 0 } },
+        ],
+        responses: {
+          "200": { description: "{ bounties[], count, total, hasMore, limit, offset }" },
+          "404": { description: "Not found (when d_tag specified)" },
+        },
+      },
+    },
+    "/api/bounties/stats": {
+      get: {
+        summary: "Bounty statistics",
+        description: "Returns total, open, in_progress, completed counts and total_sats.",
+      },
+    },
+    "/api/bounties/feed": {
+      get: {
+        summary: "RSS/Atom feed",
+        description: "RSS feed of open bounties for feed readers and aggregators.",
+      },
     },
     "/api/nostr/nip89": {
       get: {
