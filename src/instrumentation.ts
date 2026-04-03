@@ -15,7 +15,7 @@ export async function register() {
 
   console.log("[instrumentation] Starting background tasks...");
 
-  // Delay first sync by 30s to let relays connect
+  // Delay first sync by 60s to let relay pool fully connect
   setTimeout(async () => {
     try {
       const { syncBountiesIncremental } = await import("@/lib/server/bounty-sync");
@@ -38,7 +38,7 @@ export async function register() {
     } catch (e) {
       console.error("[auto-sync] Failed to start:", e instanceof Error ? e.message : e);
     }
-  }, 30_000);
+  }, 60_000);
 
   // Auto-expire stale bounties
   setTimeout(async () => {
