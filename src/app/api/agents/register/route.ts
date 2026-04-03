@@ -16,8 +16,30 @@ import { generateKeypair, pubkeyFromNsec } from "@/lib/server/signing";
 import { hashApiKey } from "@/lib/server/auth";
 import { insertApiKey } from "@/lib/server/db";
 import { encrypt } from "@/lib/server/crypto";
+import { createRateLimiter } from "@/lib/server/rate-limit";
+
+// Strict rate limit: 5 registrations per IP per hour
+const registerLimiter = createRateLimiter({ windowMs: 3_600_000, max: 5 });
 
 export async function POST(request: NextRequest) {
+  // Rate limit by IP
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    || request.headers.get("x-real-ip")
+    || "unknown";
+  const { ok: rateOk, remaining, resetMs } = registerLimiter.check(ip);
+  if (!rateOk) {
+    return NextResponse.json(
+      { error: "Too many registrations. Try again later.", retryAfterMs: resetMs },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(Math.ceil(resetMs / 1000)),
+          "X-RateLimit-Remaining": "0",
+        },
+      },
+    );
+  }
+
   // Optional gating: require a registration secret
   const regSecret = process.env.REGISTRATION_SECRET;
   if (regSecret) {

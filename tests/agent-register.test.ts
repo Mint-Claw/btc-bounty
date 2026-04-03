@@ -11,6 +11,18 @@ vi.mock("@/lib/server/db", () => ({
   touchApiKeyUsage: vi.fn(),
 }));
 
+// Mock rate limiter to always allow in tests
+vi.mock("@/lib/server/rate-limit", () => ({
+  createRateLimiter: () => ({
+    check: () => ({ ok: true, remaining: 99, resetMs: 60000, total: 1 }),
+    reset: () => {},
+    get size() { return 0; },
+  }),
+  apiLimiter: { check: () => ({ ok: true, remaining: 99, resetMs: 60000, total: 1 }), reset: () => {} },
+  authLimiter: { check: () => ({ ok: true, remaining: 99, resetMs: 60000, total: 1 }), reset: () => {} },
+  webhookLimiter: { check: () => ({ ok: true, remaining: 99, resetMs: 60000, total: 1 }), reset: () => {} },
+}));
+
 vi.mock("@/lib/server/signing", () => ({
   generateKeypair: () => ({
     nsec: "a".repeat(64),
