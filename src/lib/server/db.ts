@@ -163,6 +163,43 @@ function migrate(db: Database.Database): void {
       INSERT INTO schema_version (version) VALUES (4);
     `);
   }
+
+  if (current.v < 5) {
+    db.exec(`
+      -- Full-text search index for bounty content
+      CREATE VIRTUAL TABLE IF NOT EXISTS bounty_fts USING fts5(
+        d_tag UNINDEXED,
+        title,
+        content,
+        category,
+        content=bounty_events,
+        content_rowid=rowid
+      );
+
+      -- Populate FTS from existing data
+      INSERT INTO bounty_fts(d_tag, title, content, category)
+        SELECT d_tag, COALESCE(title,''), COALESCE(content,''), COALESCE(category,'')
+        FROM bounty_events;
+
+      -- Triggers to keep FTS in sync with bounty_events
+      CREATE TRIGGER IF NOT EXISTS bounty_fts_insert AFTER INSERT ON bounty_events BEGIN
+        INSERT INTO bounty_fts(d_tag, title, content, category)
+        VALUES (NEW.d_tag, COALESCE(NEW.title,''), COALESCE(NEW.content,''), COALESCE(NEW.category,''));
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS bounty_fts_update AFTER UPDATE ON bounty_events BEGIN
+        DELETE FROM bounty_fts WHERE d_tag = OLD.d_tag;
+        INSERT INTO bounty_fts(d_tag, title, content, category)
+        VALUES (NEW.d_tag, COALESCE(NEW.title,''), COALESCE(NEW.content,''), COALESCE(NEW.category,''));
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS bounty_fts_delete AFTER DELETE ON bounty_events BEGIN
+        DELETE FROM bounty_fts WHERE d_tag = OLD.d_tag;
+      END;
+
+      INSERT INTO schema_version (version) VALUES (5);
+    `);
+  }
 }
 
 // ─── Toku Listing Queries ────────────────────────────────────
@@ -457,21 +494,37 @@ export function searchCachedBounties(query: string, options?: {
   limit?: number;
 }): BountyEventRow[] {
   const db = getDB();
-  const conditions: string[] = ["(title LIKE ? OR summary LIKE ? OR content LIKE ?)"];
-  const searchTerm = `%${query}%`;
-  const params: unknown[] = [searchTerm, searchTerm, searchTerm];
-
-  if (options?.status) {
-    conditions.push("status = ?");
-    params.push(options.status);
-  }
-
-  const where = `WHERE ${conditions.join(" AND ")}`;
   const limit = options?.limit || 20;
 
-  return db.prepare(
-    `SELECT * FROM bounty_events ${where} ORDER BY created_at DESC LIMIT ?`
-  ).all(...params, limit) as BountyEventRow[];
+  // Try FTS5 first (fast, ranked), fall back to LIKE
+  try {
+    const statusFilter = options?.status ? "AND b.status = ?" : "";
+    const params: unknown[] = [query, ...(options?.status ? [options.status] : []), limit];
+
+    return db.prepare(
+      `SELECT b.* FROM bounty_events b
+       INNER JOIN bounty_fts f ON f.d_tag = b.d_tag
+       WHERE bounty_fts MATCH ?
+       ${statusFilter}
+       ORDER BY rank
+       LIMIT ?`
+    ).all(...params) as BountyEventRow[];
+  } catch {
+    // FTS table may not exist yet — fall back to LIKE
+    const conditions: string[] = ["(title LIKE ? OR summary LIKE ? OR content LIKE ?)"];
+    const searchTerm = `%${query}%`;
+    const params: unknown[] = [searchTerm, searchTerm, searchTerm];
+
+    if (options?.status) {
+      conditions.push("status = ?");
+      params.push(options.status);
+    }
+
+    const where = `WHERE ${conditions.join(" AND ")}`;
+    return db.prepare(
+      `SELECT * FROM bounty_events ${where} ORDER BY created_at DESC LIMIT ?`
+    ).all(...params, limit) as BountyEventRow[];
+  }
 }
 
 export function getBountyStats(): {

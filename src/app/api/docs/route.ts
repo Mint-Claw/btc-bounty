@@ -138,6 +138,21 @@ const API_DOCS = {
     "/api/version": {
       get: { summary: "API version", description: "Returns current API version." },
     },
+    "/api/bounties/search": {
+      get: {
+        summary: "Full-text search bounties",
+        description: "Search bounty titles and content using FTS5. Returns ranked results.",
+        parameters: [
+          { name: "q", in: "query", required: true, schema: { type: "string", minLength: 2 }, description: "Search query (min 2 chars)" },
+          { name: "status", in: "query", schema: { type: "string", enum: ["OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED"] } },
+          { name: "limit", in: "query", schema: { type: "integer", default: 20, maximum: 50 } },
+        ],
+        responses: {
+          "200": { description: "{ query, count, results: [{ d_tag, title, summary, reward_sats, status, category, created_at }] }" },
+          "400": { description: "Missing or too-short query" },
+        },
+      },
+    },
     "/api/bounties/cached": {
       get: {
         summary: "List cached bounties (recommended for agents)",
