@@ -138,6 +138,15 @@ const API_DOCS = {
     "/api/version": {
       get: { summary: "API version", description: "Returns current API version." },
     },
+    "/api/bounties/categories": {
+      get: {
+        summary: "List bounty categories with counts",
+        description: "Returns all distinct categories and how many open bounties each has, with total sats.",
+        responses: {
+          "200": { description: "{ categories: [{ name, open_bounties, total_sats }] }" },
+        },
+      },
+    },
     "/api/bounties/search": {
       get: {
         summary: "Full-text search bounties",
