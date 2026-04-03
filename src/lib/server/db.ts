@@ -166,36 +166,18 @@ function migrate(db: Database.Database): void {
 
   if (current.v < 5) {
     db.exec(`
-      -- Full-text search index for bounty content
+      -- Full-text search index for bounty content (standalone, not content-external)
       CREATE VIRTUAL TABLE IF NOT EXISTS bounty_fts USING fts5(
         d_tag UNINDEXED,
         title,
         content,
-        category,
-        content=bounty_events,
-        content_rowid=rowid
+        category
       );
 
       -- Populate FTS from existing data
       INSERT INTO bounty_fts(d_tag, title, content, category)
         SELECT d_tag, COALESCE(title,''), COALESCE(content,''), COALESCE(category,'')
         FROM bounty_events;
-
-      -- Triggers to keep FTS in sync with bounty_events
-      CREATE TRIGGER IF NOT EXISTS bounty_fts_insert AFTER INSERT ON bounty_events BEGIN
-        INSERT INTO bounty_fts(d_tag, title, content, category)
-        VALUES (NEW.d_tag, COALESCE(NEW.title,''), COALESCE(NEW.content,''), COALESCE(NEW.category,''));
-      END;
-
-      CREATE TRIGGER IF NOT EXISTS bounty_fts_update AFTER UPDATE ON bounty_events BEGIN
-        DELETE FROM bounty_fts WHERE d_tag = OLD.d_tag;
-        INSERT INTO bounty_fts(d_tag, title, content, category)
-        VALUES (NEW.d_tag, COALESCE(NEW.title,''), COALESCE(NEW.content,''), COALESCE(NEW.category,''));
-      END;
-
-      CREATE TRIGGER IF NOT EXISTS bounty_fts_delete AFTER DELETE ON bounty_events BEGIN
-        DELETE FROM bounty_fts WHERE d_tag = OLD.d_tag;
-      END;
 
       INSERT INTO schema_version (version) VALUES (5);
     `);
@@ -420,6 +402,16 @@ export function cacheBountyEvent(event: {
     event.tags ? JSON.stringify(event.tags) : null,
     event.createdAt,
   );
+
+  // Keep FTS index in sync (upsert: delete old, insert new)
+  try {
+    db.prepare("DELETE FROM bounty_fts WHERE d_tag = ?").run(event.dTag);
+    db.prepare(
+      "INSERT INTO bounty_fts(d_tag, title, content, category) VALUES (?, ?, ?, ?)"
+    ).run(event.dTag, event.title || "", event.content || "", event.category || "other");
+  } catch {
+    // FTS table may not exist yet during migration
+  }
 }
 
 export function getCachedBounty(dTag: string): BountyEventRow | undefined {
