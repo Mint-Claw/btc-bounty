@@ -395,6 +395,7 @@ export function getCachedBounty(dTag: string): BountyEventRow | undefined {
 export function listCachedBounties(options?: {
   status?: string;
   category?: string;
+  minReward?: number;
   limit?: number;
   offset?: number;
 }): BountyEventRow[] {
@@ -410,6 +411,10 @@ export function listCachedBounties(options?: {
     conditions.push("category = ?");
     params.push(options.category);
   }
+  if (options?.minReward && options.minReward > 0) {
+    conditions.push("reward_sats >= ?");
+    params.push(options.minReward);
+  }
 
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const limit = options?.limit || 50;
@@ -418,6 +423,33 @@ export function listCachedBounties(options?: {
   return db.prepare(
     `SELECT * FROM bounty_events ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`
   ).all(...params, limit, offset) as BountyEventRow[];
+}
+
+export function countCachedBounties(options?: {
+  status?: string;
+  category?: string;
+  minReward?: number;
+}): number {
+  const db = getDB();
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (options?.status) {
+    conditions.push("status = ?");
+    params.push(options.status);
+  }
+  if (options?.category) {
+    conditions.push("category = ?");
+    params.push(options.category);
+  }
+  if (options?.minReward && options.minReward > 0) {
+    conditions.push("reward_sats >= ?");
+    params.push(options.minReward);
+  }
+
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const row = db.prepare(`SELECT COUNT(*) as count FROM bounty_events ${where}`).get(...params) as { count: number };
+  return row.count;
 }
 
 export function searchCachedBounties(query: string, options?: {
