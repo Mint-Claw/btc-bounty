@@ -2,7 +2,7 @@ import { MetadataRoute } from "next";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL || "https://btc-bounty.vercel.app";
+    process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://btc-bounty.io";
 
   const staticPages: MetadataRoute.Sitemap = [
     {
