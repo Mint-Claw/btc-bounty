@@ -75,6 +75,21 @@ export interface BountyApplication {
   createdAt: number;
 }
 
+// Aggregate malformed-event warnings to prevent log spam
+let _malformedCount = 0;
+let _malformedLogTimer: ReturnType<typeof setTimeout> | null = null;
+function bumpMalformedCount(): void {
+  _malformedCount++;
+  if (_malformedLogTimer) return;
+  _malformedLogTimer = setTimeout(() => {
+    if (_malformedCount > 0) {
+      console.warn(`[schema] Skipped ${_malformedCount} malformed bounty events (missing d/title tag)`);
+    }
+    _malformedCount = 0;
+    _malformedLogTimer = null;
+  }, 5000);
+}
+
 /**
  * Parse a kind:30402 NOSTR event into a Bounty object.
  * Returns null if the event is malformed.
@@ -96,7 +111,8 @@ export function parseBountyEvent(event: {
 
     // Required fields
     if (!dTag || !title) {
-      console.warn(`Skipping malformed bounty event ${event.id}: missing d or title tag`);
+      // Aggregate: log count every N skips instead of each one (prevents log spam)
+      bumpMalformedCount();
       return null;
     }
 
