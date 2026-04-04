@@ -117,10 +117,29 @@ export function parseBountyEvent(event: {
     }
 
     // Filter out non-bounty events that share kind:30402
-    // (NIP-15 products, marketplace listings, mass uploads, test data)
-    const junkPrefixes = ["product_", "mass_upload_", "unh-market", "bornheimer-"];
+    // kind:30402 is NIP-99 Classified Listings — used for products/marketplace too
+    const junkPrefixes = [
+      "product_", "mass_upload_", "unh-market", "bornheimer-",
+      "bch-listing-", "chewable-", "Phase 3 Milk",
+    ];
     if (junkPrefixes.some((p) => dTag.startsWith(p)) || getTag("type") === "product") {
       return null;
+    }
+
+    // kind:30402 is shared with NIP-99 classified listings (products, marketplace items).
+    // Heuristic filter: reject obvious product/marketplace listings.
+    // Only apply strict filter when there's a price tag (classified listing) but no
+    // reward tag or bounty indicator.
+    const priceTag = event.tags.find((t) => t[0] === "price");
+    if (priceTag && !rewardStr) {
+      const hasBountyTag = event.tags.some(
+        (t) => t[0] === "t" && ["bounty", "bounties", "job", "task"].includes((t[1] || "").toLowerCase())
+      );
+      const hasBountyKeyword = /\bbount(y|ies)\b/i.test(title) || /\bbount(y|ies)\b/i.test(event.content.slice(0, 500));
+      if (!hasBountyTag && !hasBountyKeyword) {
+        // Has price but no bounty context → it's a product listing
+        return null;
+      }
     }
 
     const tTags = event.tags
