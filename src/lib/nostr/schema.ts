@@ -126,18 +126,29 @@ export function parseBountyEvent(event: {
       return null;
     }
 
-    // kind:30402 is shared with NIP-99 classified listings (products, marketplace items).
-    // Heuristic filter: reject obvious product/marketplace listings.
-    // Only apply strict filter when there's a price tag (classified listing) but no
-    // reward tag or bounty indicator.
-    const priceTag = event.tags.find((t) => t[0] === "price");
-    if (priceTag && !rewardStr) {
+    // kind:30402 is shared with many non-bounty use cases:
+    // - NIP-99 classified listings (products, marketplace)
+    // - DegMods game mods (game, nsfw tags)
+    // - Custom app listings (various)
+    // Reject any event that lacks a reward AND has non-bounty signals.
+    const nonBountyTagNames = new Set([
+      "price",       // NIP-99 classified (product)
+      "game",        // DegMods game mod
+      "nsfw",        // DegMods / adult content
+      "repost",      // DegMods repost flag
+      "downloadUrls", // DegMods download
+      "screenshotsUrls",
+      "featuredImageUrl",
+      "modPermission",
+    ]);
+    const hasNonBountySignal = event.tags.some((t) => nonBountyTagNames.has(t[0]));
+    
+    if (!rewardStr && hasNonBountySignal) {
       const hasBountyTag = event.tags.some(
         (t) => t[0] === "t" && ["bounty", "bounties", "job", "task"].includes((t[1] || "").toLowerCase())
       );
       const hasBountyKeyword = /\bbount(y|ies)\b/i.test(title) || /\bbount(y|ies)\b/i.test(event.content.slice(0, 500));
       if (!hasBountyTag && !hasBountyKeyword) {
-        // Has price but no bounty context → it's a product listing
         return null;
       }
     }
