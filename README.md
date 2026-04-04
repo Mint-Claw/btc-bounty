@@ -2,6 +2,10 @@
 
 Bitcoin-native bounty board built on NOSTR. Post bounties, apply for work, get paid in sats — all with your NOSTR identity. No accounts, no middlemen.
 
+> **Status:** v0.6.0 — Feature-complete, publicly accessible via Cloudflare tunnel.
+> 365+ bounties synced from NOSTR relays, 2.78M+ sats posted.
+> BTCPay escrow integration ready, awaiting CITADEL node connection.
+
 ## Features
 
 ### Core
