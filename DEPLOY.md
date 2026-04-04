@@ -1,5 +1,42 @@
 # BTC Bounty — Deploy Guide
 
+## Current Status
+- ✅ Running locally on Mac Mini (launchd auto-restart)
+- ✅ Publicly accessible via Cloudflare quick tunnel (ephemeral URL)
+- ✅ 365+ bounties synced from NOSTR relays
+- ⬜ Stable URL (needs Cloudflare auth or domain)
+- ⬜ BTCPay escrow (CITADEL still 503)
+
+## Quick Local Deploy
+```bash
+./scripts/deploy-local.sh          # full: build → test → restart → tunnel
+./scripts/deploy-local.sh --skip-test  # fast: skip tests
+```
+
+## Get a Stable URL (William TODO)
+Option A — Cloudflare Named Tunnel (free, permanent URL):
+```bash
+cloudflared login                  # opens browser, authenticates
+cloudflared tunnel create btc-bounty
+cloudflared tunnel route dns btc-bounty bounty.yourdomain.com
+cloudflared tunnel run --url http://localhost:3457 btc-bounty
+```
+
+Option B — Vercel (free tier):
+```bash
+vercel login                       # opens browser
+cd ~/Projects/btc-bounty && vercel --prod
+# Set env vars in Vercel dashboard (BTCPAY_URL, BTCPAY_API_KEY, etc.)
+```
+
+Option C — Fly.io ($0-5/mo):
+```bash
+flyctl auth login
+cd ~/Projects/btc-bounty && flyctl deploy
+```
+
+---
+
 ## Status: READY TO DEPLOY ✅
 - Build: passes
 - Tests: 568/568 passing
