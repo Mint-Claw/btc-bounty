@@ -18,10 +18,10 @@ export async function register() {
   // Delay first sync by 60s to let relay pool fully connect
   setTimeout(async () => {
     try {
-      const { syncBountiesIncremental } = await import("@/lib/server/bounty-sync");
+      const { syncBounties, syncBountiesIncremental } = await import("@/lib/server/bounty-sync");
 
-      // Initial sync
-      const result = await syncBountiesIncremental(200);
+      // Initial full sync (since=0) to repopulate cache after restart
+      const result = await syncBounties(0, 500);
       console.log(`[auto-sync] Initial: fetched=${result.fetched} cached=${result.cached}`);
 
       // Periodic incremental sync
