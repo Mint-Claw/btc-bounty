@@ -23,9 +23,23 @@ export async function GET(request: NextRequest) {
     process.env.NEXT_PUBLIC_APP_URL ||
     `${request.nextUrl.protocol}//${request.headers.get("host") || "localhost:3457"}`;
 
+  // Optional filters
+  const category = request.nextUrl.searchParams.get("category")?.trim() || undefined;
+  const minSatsParam = request.nextUrl.searchParams.get("min_sats");
+  const minSats = minSatsParam ? parseInt(minSatsParam, 10) : undefined;
+  const limit = Math.min(
+    parseInt(request.nextUrl.searchParams.get("limit") || "30", 10),
+    100,
+  );
+
   let bounties: BountyEventRow[] = [];
   try {
-    bounties = listCachedBounties({ status: "OPEN", limit: 30 });
+    bounties = listCachedBounties({
+      status: "OPEN",
+      category,
+      minReward: minSats && !isNaN(minSats) ? minSats : undefined,
+      limit,
+    });
   } catch (e) {
     console.error("[feed] Failed to read bounty cache:", e);
   }
@@ -55,7 +69,7 @@ export async function GET(request: NextRequest) {
   const rss = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>BTC Bounty — Open Bounties</title>
+    <title>BTC Bounty — ${escapeXml(category ? `${category} bounties` : "Open Bounties")}${minSats ? ` (${minSats.toLocaleString()}+ sats)` : ""}</title>
     <link>${escapeXml(appUrl)}</link>
     <description>Bitcoin-native bounty board built on Nostr. Pay via Lightning.</description>
     <language>en-us</language>
