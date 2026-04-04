@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.6.0] - 2026-04-04
+
+### Added
+- **Cloudflare tunnel wrapper** — `scripts/cloudflared-tunnel.sh` captures tunnel URL to `/tmp/btc-bounty-tunnel-url.txt`
+- **Full initial sync** — server restart now pulls all bounties from relays (since=0, limit=500) instead of incremental
+
+### Fixed
+- **Relay event deduplication** — `cacheBountyEvent()` now deduplicates by title+pubkey, preventing duplicate bounties from repeated relay syncs
+- **Test/production DB isolation** — tests now use separate `data/test/` directory via vitest config, preventing test runs from wiping production data
+- **Test fixtures updated** — tests use unique titles to work with dedup logic
+
+### Changed
+- Default sort changed from "newest" to "highest reward" — real bounties shown first to visitors
+
+### Stats
+- 568 unit tests, all passing
+- Board: 186 bounties, 1.9M sats, 3/4 relays online
+- Live at Cloudflare tunnel (quick tunnel, ephemeral URL)
+
 ## [0.5.0] - 2026-04-03
 
 ### Added
