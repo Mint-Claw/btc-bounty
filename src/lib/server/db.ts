@@ -182,6 +182,31 @@ function migrate(db: Database.Database): void {
       INSERT INTO schema_version (version) VALUES (5);
     `);
   }
+
+  if (current.v < 6) {
+    // Migration v6: heal FTS table if it was created as external-content
+    // (content=bounty_events) — incompatible with our INSERT-value triggers.
+    // Rebuild as standalone table.
+    const ftsInfo = db
+      .prepare("SELECT sql FROM sqlite_master WHERE name='bounty_fts'")
+      .get() as { sql: string } | undefined;
+    if (ftsInfo && ftsInfo.sql.includes("content=bounty_events")) {
+      db.exec(`
+        DROP TABLE bounty_fts;
+        CREATE VIRTUAL TABLE bounty_fts USING fts5(
+          d_tag UNINDEXED,
+          title,
+          content,
+          category
+        );
+        INSERT INTO bounty_fts(d_tag, title, content, category)
+          SELECT d_tag, COALESCE(title,''), COALESCE(content,''), COALESCE(category,'')
+          FROM bounty_events;
+      `);
+      console.log("[db] Rebuilt bounty_fts as standalone (was external-content)");
+    }
+    db.exec(`INSERT INTO schema_version (version) VALUES (6);`);
+  }
 }
 
 // ─── Toku Listing Queries ────────────────────────────────────
