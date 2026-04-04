@@ -106,6 +106,7 @@ describe("Bounty Search & Stats", () => {
         ...bounty1,
         id: `limit-${i}`,
         dTag: `bug-${i}`,
+        title: `Login Bug Fix ${i}`,
         createdAt: 1700000000 + i,
       });
     }

@@ -100,6 +100,7 @@ describe("Bounty Workflow (OPEN → IN_PROGRESS → COMPLETED)", () => {
       ...bounty,
       id: "wf-test-2",
       dTag: "second-bounty",
+      title: "Second Workflow Bounty",
       rewardSats: 25000,
     });
 

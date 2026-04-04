@@ -111,6 +111,7 @@ describe("Bounty Event Cache", () => {
         ...sampleEvent,
         id: `paginated-id-${i}`,
         dTag: `paginated-${i}`,
+        title: `Paginated Bounty ${i}`,
         createdAt: 1700000000 + i,
       });
     }
