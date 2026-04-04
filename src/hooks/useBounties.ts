@@ -35,7 +35,7 @@ export function useBounties(ndk: NDK | null, filter?: BountyFilter) {
             b.content.toLowerCase().includes(q),
         );
       }
-      const sortBy = filter?.sort ?? "newest";
+      const sortBy = filter?.sort ?? "reward_high";
       switch (sortBy) {
         case "oldest":
           result.sort((a, b) => a.createdAt - b.createdAt);

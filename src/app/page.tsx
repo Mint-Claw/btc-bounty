@@ -77,7 +77,7 @@ function HomeContent() {
       if (next.status) params.set("status", next.status);
       if (next.category) params.set("category", next.category);
       if (next.search) params.set("q", next.search);
-      if (next.sort && next.sort !== "newest") params.set("sort", next.sort);
+      if (next.sort && next.sort !== "reward_high") params.set("sort", next.sort);
       const qs = params.toString();
       router.replace(qs ? `/?${qs}` : "/", { scroll: false });
       return next;
@@ -226,7 +226,7 @@ function HomeContent() {
 
           {/* Sort */}
           <select
-            value={filter.sort ?? "newest"}
+            value={filter.sort ?? "reward_high"}
             onChange={(e) =>
               updateFilter((f) => ({
                 ...f,
@@ -243,7 +243,7 @@ function HomeContent() {
           </select>
 
           {/* Clear filters — show only when filters active */}
-          {(filter.status || filter.category || filter.search || (filter.sort && filter.sort !== "newest")) && (
+          {(filter.status || filter.category || filter.search || (filter.sort && filter.sort !== "reward_high")) && (
             <button
               onClick={() => updateFilter(() => ({}))}
               className="text-sm text-red-400 hover:text-red-300 transition"
