@@ -391,13 +391,15 @@ export function cacheBountyEvent(event: {
 }): void {
   const db = getDB();
 
-  // Dedup: skip if we already have an event with the same title+pubkey
-  // (relay events may have different d_tags / event IDs for the same logical bounty)
+  // Dedup: skip if we already have an event with the same title+reward
+  // (same bounty content reposted by multiple agents — keep newest per title)
+  // We use title+reward because identical titles with identical rewards are
+  // almost certainly the same logical bounty (e.g. seed posts replayed).
   const existing = db
     .prepare(
-      `SELECT id, created_at FROM bounty_events WHERE title = ? AND pubkey = ? LIMIT 1`
+      `SELECT id, created_at FROM bounty_events WHERE title = ? AND reward_sats = ? LIMIT 1`
     )
-    .get(event.title, event.pubkey) as
+    .get(event.title, event.rewardSats) as
     | { id: string; created_at: number }
     | undefined;
 
