@@ -197,31 +197,48 @@ class RelayPool {
     const urls = this.sortedRelays();
 
     for (const url of urls) {
-      const relay = await this.getRelay(url);
+      let relay = await this.getRelay(url);
       if (!relay) continue;
+
+      // Check if the underlying connection is still open; if not, reconnect
+      if (!(relay as unknown as { connected?: boolean }).connected) {
+        this.connections.delete(url);
+        relay = await this.getRelay(url);
+        if (!relay) continue;
+      }
 
       const h = this.health.get(url)!;
       const start = Date.now();
 
       try {
         const events: SignedEvent[] = [];
-        const sub = relay.subscribe(
-          [filter as Parameters<typeof relay.subscribe>[0][0]],
-          {
-            onevent(event) {
-              events.push(event as unknown as SignedEvent);
+        let sub: { close: () => void };
+        try {
+          sub = relay.subscribe(
+            [filter as Parameters<typeof relay.subscribe>[0][0]],
+            {
+              onevent(event) {
+                events.push(event as unknown as SignedEvent);
+              },
+              oneose() {
+                try { sub.close(); } catch { /* ignore */ }
+              },
             },
-            oneose() {
-              sub.close();
-            },
-          },
-        );
+          );
+        } catch (e) {
+          // SendingOnClosedConnection or other sync error from subscribe
+          h.consecutiveFailures++;
+          h.lastFailure = Date.now();
+          this.connections.delete(url);
+          h.connected = false;
+          continue;
+        }
 
         await new Promise<void>((resolve) => {
           const origClose = sub.close.bind(sub);
           let resolved = false;
           sub.close = () => {
-            origClose();
+            try { origClose(); } catch { /* connection may be closed */ }
             if (!resolved) { resolved = true; resolve(); }
           };
           setTimeout(() => sub.close(), this.config.fetchTimeoutMs);

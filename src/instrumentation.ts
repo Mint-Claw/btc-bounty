@@ -15,6 +15,17 @@ export async function register() {
 
   console.log("[instrumentation] Starting background tasks...");
 
+  // Prevent relay disconnect errors from crashing the process
+  process.on("unhandledRejection", (reason) => {
+    const msg = reason instanceof Error ? reason.message : String(reason);
+    if (msg.includes("SendingOnClosedConnection") || msg.includes("closed connection")) {
+      // Known harmless relay disconnect race — log and continue
+      console.warn("[relay] Closed connection race (ignored):", msg.slice(0, 100));
+      return;
+    }
+    console.error("[unhandledRejection]", reason);
+  });
+
   // Delay first sync by 60s to let relay pool fully connect
   setTimeout(async () => {
     try {
