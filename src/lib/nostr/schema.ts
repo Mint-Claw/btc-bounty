@@ -126,31 +126,19 @@ export function parseBountyEvent(event: {
       return null;
     }
 
-    // kind:30402 is shared with many non-bounty use cases:
-    // - NIP-99 classified listings (products, marketplace)
-    // - DegMods game mods (game, nsfw tags)
-    // - Custom app listings (various)
-    // Reject any event that lacks a reward AND has non-bounty signals.
-    const nonBountyTagNames = new Set([
-      "price",       // NIP-99 classified (product)
-      "game",        // DegMods game mod
-      "nsfw",        // DegMods / adult content
-      "repost",      // DegMods repost flag
-      "downloadUrls", // DegMods download
-      "screenshotsUrls",
-      "featuredImageUrl",
-      "modPermission",
-    ]);
-    const hasNonBountySignal = event.tags.some((t) => nonBountyTagNames.has(t[0]));
+    // kind:30402 (NIP-99) is used for many non-bounty things:
+    // products, game mods, app listings, tourism services, etc.
+    // Strict rule: a real bounty MUST have either
+    //   (a) a reward tag (even "0" = explicit volunteer bounty), OR
+    //   (b) an explicit bounty indicator (keyword or tag)
+    const hasRewardTag = rewardStr !== undefined;
+    const hasBountyTag = event.tags.some(
+      (t) => t[0] === "t" && ["bounty", "bounties", "job", "task", "gig"].includes((t[1] || "").toLowerCase())
+    );
+    const hasBountyKeyword = /\bbount(y|ies)\b/i.test(title) || /\bbount(y|ies)\b/i.test(event.content.slice(0, 500));
     
-    if (!rewardStr && hasNonBountySignal) {
-      const hasBountyTag = event.tags.some(
-        (t) => t[0] === "t" && ["bounty", "bounties", "job", "task"].includes((t[1] || "").toLowerCase())
-      );
-      const hasBountyKeyword = /\bbount(y|ies)\b/i.test(title) || /\bbount(y|ies)\b/i.test(event.content.slice(0, 500));
-      if (!hasBountyTag && !hasBountyKeyword) {
-        return null;
-      }
+    if (!hasRewardTag && !hasBountyTag && !hasBountyKeyword) {
+      return null;
     }
 
     const tTags = event.tags

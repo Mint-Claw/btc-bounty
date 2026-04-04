@@ -59,7 +59,7 @@ describe("parseBountyEvent", () => {
       ...validEvent,
       tags: [
         ["d", "no-status"],
-        ["title", "No Status"],
+        ["title", "No Status Bounty"],
       ],
     };
     const bounty = parseBountyEvent(event);
@@ -71,7 +71,7 @@ describe("parseBountyEvent", () => {
       ...validEvent,
       tags: [
         ["d", "no-cat"],
-        ["title", "No Cat"],
+        ["title", "No Category Bounty"],
       ],
     };
     const bounty = parseBountyEvent(event);

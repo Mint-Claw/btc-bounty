@@ -84,7 +84,8 @@ describe("parseBountyEvent", () => {
 	it("handles missing optional fields gracefully", () => {
 		const ev = makeEvent([
 			["d", "minimal-bounty"],
-			["title", "Minimal"],
+			["title", "Minimal Bounty"],
+			["reward", "0", "sats"],
 		]);
 		const b = parseBountyEvent(ev);
 		expect(b).not.toBeNull();
