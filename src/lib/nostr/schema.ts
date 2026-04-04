@@ -100,6 +100,13 @@ export function parseBountyEvent(event: {
       return null;
     }
 
+    // Filter out non-bounty events that share kind:30402
+    // (NIP-15 products, marketplace listings, mass uploads, test data)
+    const junkPrefixes = ["product_", "mass_upload_", "unh-market", "bornheimer-"];
+    if (junkPrefixes.some((p) => dTag.startsWith(p)) || getTag("type") === "product") {
+      return null;
+    }
+
     const tTags = event.tags
       .filter((t) => t[0] === "t")
       .map((t) => t[1]);
