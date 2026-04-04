@@ -390,6 +390,26 @@ export function cacheBountyEvent(event: {
   createdAt: number;
 }): void {
   const db = getDB();
+
+  // Dedup: skip if we already have an event with the same title+pubkey
+  // (relay events may have different d_tags / event IDs for the same logical bounty)
+  const existing = db
+    .prepare(
+      `SELECT id, created_at FROM bounty_events WHERE title = ? AND pubkey = ? LIMIT 1`
+    )
+    .get(event.title, event.pubkey) as
+    | { id: string; created_at: number }
+    | undefined;
+
+  if (existing && existing.id !== event.id) {
+    // Keep the newer one
+    if (event.createdAt <= existing.created_at) {
+      return; // already have a newer or equal version
+    }
+    // Remove old version before inserting newer
+    db.prepare(`DELETE FROM bounty_events WHERE id = ?`).run(existing.id);
+  }
+
   db.prepare(`
     INSERT OR REPLACE INTO bounty_events (id, d_tag, pubkey, kind, title, summary, content,
       reward_sats, status, category, lightning, winner_pubkey, tags_json, created_at)
