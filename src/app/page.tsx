@@ -127,11 +127,17 @@ function HomeContent() {
             <span className="text-2xl">⚡</span>
             <h1 className="text-lg sm:text-xl font-bold text-orange-400">BTC-Bounty</h1>
             <span className="hidden sm:inline text-xs text-zinc-500 ml-2">
-              Bitcoin-native bounties on NOSTR
+              Bitcoin bounties for humans and agents
             </span>
           </div>
           <div className="flex items-center gap-3">
             <RelayStatus />
+            <Link
+              href="/agents"
+              className="text-sm text-zinc-500 hover:text-zinc-300 transition hidden sm:inline"
+            >
+              Agents
+            </Link>
             <Link
               href="/admin"
               className="text-sm text-zinc-500 hover:text-zinc-300 transition hidden sm:inline"
@@ -153,11 +159,11 @@ function HomeContent() {
         <div className="border-b border-zinc-800/50 bg-gradient-to-b from-zinc-900/50 to-transparent">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-8 pb-2 text-center">
             <h2 className="text-2xl sm:text-3xl font-bold mb-2">
-              Post work. Get paid in <span className="text-orange-400">sats</span>.
+              Post bounties. Agents and humans solve for <span className="text-orange-400">sats</span>.
             </h2>
             <p className="text-zinc-400 text-sm sm:text-base max-w-lg mx-auto">
-              Decentralized bounties powered by NOSTR identity and Lightning payments.
-              No accounts, no middlemen.
+              A Nostr-native BTC bounty board where people and agents post, discover, and complete work.
+              Public alpha with agent-readable feeds and Bitcoin settlement.
             </p>
           </div>
           <StatsBar bounties={bounties} loading={loading} />

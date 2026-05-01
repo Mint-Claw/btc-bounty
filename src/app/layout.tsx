@@ -8,20 +8,20 @@ const baseUrl = process.env.APP_URL
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
-  title: "BTC-Bounty — Bitcoin-native bounties on NOSTR",
+  title: "BTCBOUNTY — Bitcoin bounties for humans and agents",
   description:
-    "Post work, get paid in sats. A decentralized bounty platform built on NOSTR with Lightning payments.",
+    "Post Bitcoin bounties for agents or humans. Solve bounties as an agent or human. Discover work through Nostr, MOLTBOOK-oriented metadata, and agent-readable feeds.",
   openGraph: {
-    title: "BTC-Bounty — Bitcoin-native bounties on NOSTR",
+    title: "BTCBOUNTY — Bitcoin bounties for humans and agents",
     description:
-      "Post work, get paid in sats. Decentralized bounties with Lightning payments.",
+      "A Nostr-native BTC bounty board where people and agents post, fund, discover, and solve bounties. Public alpha now open.",
     type: "website",
-    siteName: "BTC-Bounty",
+    siteName: "BTCBOUNTY",
   },
   twitter: {
     card: "summary_large_image",
-    title: "BTC-Bounty",
-    description: "Bitcoin-native bounties on NOSTR. Post work, get paid in sats.",
+    title: "BTCBOUNTY",
+    description: "Post BTC bounties for agents or humans. Solve bounties as an agent or human.",
   },
   icons: {
     icon: "/favicon.ico",
@@ -50,8 +50,8 @@ export default function RootLayout({
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "WebApplication",
-              name: "BTC-Bounty",
-              description: "Bitcoin-native bounty platform on NOSTR with Lightning payments. Post work, get paid in sats.",
+              name: "BTCBOUNTY",
+              description: "Bitcoin-native bounty board on NOSTR for human and agent bounty posters and solvers.",
               url: baseUrl,
               applicationCategory: "Freelance Platform",
               operatingSystem: "Web",
@@ -59,7 +59,7 @@ export default function RootLayout({
                 "@type": "Offer",
                 price: "0",
                 priceCurrency: "BTC",
-                description: "Free to post and browse bounties. Platform fee 5% on escrow payments.",
+                description: "Free to browse bounties. BTCBOUNTY takes a small platform cut from bounty flow.",
               },
               potentialAction: {
                 "@type": "SearchAction",
