@@ -1,62 +1,41 @@
-# BTC-Bounty — Multi-stage Docker build
+# BTC-Bounty — multi-stage Docker build for durable public-alpha hosting.
 # Build: docker build -t btc-bounty .
-# Run:   docker run -p 3000:3000 --env-file .env btc-bounty
+# Run:   docker run -p 3000:3000 --env-file .env -v btc-bounty-data:/data btc-bounty
 
-FROM node:20-alpine AS base
-RUN corepack enable && corepack prepare pnpm@latest --activate
-
-# --- Dependencies ---
-FROM base AS deps
+FROM node:20-bookworm-slim AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
 WORKDIR /app
-# better-sqlite3 needs build tools for native bindings
-RUN apk add --no-cache python3 make g++
+
+FROM base AS deps
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
-# --- Build ---
 FROM base AS builder
-WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-
-# Build Next.js (standalone output for minimal image)
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm build
 
-# --- Production ---
-FROM node:20-alpine AS runner
+FROM node:20-bookworm-slim AS runner
 WORKDIR /app
-
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-
-# Create non-root user
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
-
-# Copy standalone build + static assets
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
-
-# better-sqlite3 native bindings (required at runtime)
-COPY --from=deps /app/node_modules/better-sqlite3 ./node_modules/better-sqlite3
-COPY --from=deps /app/node_modules/bindings ./node_modules/bindings
-COPY --from=deps /app/node_modules/prebuild-install ./node_modules/prebuild-install
-COPY --from=deps /app/node_modules/file-uri-to-path ./node_modules/file-uri-to-path
-
-# Data directory for SQLite + payment tracking
-# Default: /app/.data (Docker), override with BTCBOUNTY_DATA_DIR (e.g. /data for Fly.io volumes)
-RUN mkdir -p /app/.data /data && chown nextjs:nodejs /app/.data /data
-ENV BTCBOUNTY_DATA_DIR=/app/.data
-
-USER nextjs
-
-EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
-
+ENV BTCBOUNTY_DATA_DIR=/data
+RUN useradd --system --uid 1001 nextjs \
+  && mkdir -p /data \
+  && chown -R nextjs:nextjs /data /app
+COPY --from=builder --chown=nextjs:nextjs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nextjs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nextjs /app/public ./public
+USER nextjs
+EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
-
+  CMD node -e "fetch(http://127.0.0.1:3000/api/health).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["node", "server.js"]

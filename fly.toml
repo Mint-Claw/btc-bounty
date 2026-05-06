@@ -1,9 +1,8 @@
-# Fly.io deployment config for BTC-Bounty
-# Deploy: flyctl launch --copy-config --no-deploy && flyctl deploy
-# Docs: https://fly.io/docs/reference/configuration/
+# Fly.io deployment config for BTCBOUNTY public alpha.
+# Owner must run `flyctl auth login`, confirm app name, create volume, then deploy.
 
-app = "btc-bounty"
-primary_region = "ord" # Chicago — closest to CITADEL
+app = "btcbounty-public-alpha"
+primary_region = "iad"
 
 [build]
   dockerfile = "Dockerfile"
@@ -11,25 +10,23 @@ primary_region = "ord" # Chicago — closest to CITADEL
 [env]
   NODE_ENV = "production"
   PORT = "3000"
-  NEXT_PUBLIC_RELAYS = "wss://relay.damus.io,wss://nos.lol,wss://relay.nostr.band"
+  HOSTNAME = "0.0.0.0"
+  BTCBOUNTY_DATA_DIR = "/data"
 
 [http_service]
   internal_port = 3000
   force_https = true
-  auto_stop_machines = "suspend"
+  auto_stop_machines = false
   auto_start_machines = true
   min_machines_running = 1
+  processes = ["app"]
 
   [http_service.concurrency]
     type = "requests"
     hard_limit = 250
     soft_limit = 200
 
-[[vm]]
-  size = "shared-cpu-1x"
-  memory = "512mb"
-
-[mounts]
+[[mounts]]
   source = "btcbounty_data"
   destination = "/data"
 
@@ -41,3 +38,8 @@ primary_region = "ord" # Chicago — closest to CITADEL
     interval = "30s"
     timeout = "5s"
     grace_period = "10s"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
