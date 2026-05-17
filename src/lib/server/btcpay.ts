@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "crypto";
 /**
  * BTCPay Server API Client
  *
@@ -271,9 +272,16 @@ export async function verifyWebhookSignature(
   );
 
   const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
-  const computed = `sha256=${Buffer.from(sig).toString("hex")}`;
+  const computedHex = Buffer.from(sig).toString("hex");
+  const providedHex = signature.trim().replace(/^sha256=/i, "");
 
-  return computed === signature;
+  if (!/^[a-f0-9]+$/i.test(providedHex)) return false;
+
+  const expected = Buffer.from(computedHex, "hex");
+  const provided = Buffer.from(providedHex, "hex");
+  if (expected.length !== provided.length) return false;
+
+  return timingSafeEqual(expected, provided);
 }
 
 /**

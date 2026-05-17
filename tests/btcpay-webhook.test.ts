@@ -48,6 +48,23 @@ describe("BTCPay webhook handler", () => {
     expect(valid).toBe(true);
   });
 
+
+
+  test("accepts valid HMAC signatures without sha256 prefix", async () => {
+    const { verifyWebhookSignature } = await import("@/lib/server/btcpay");
+    const body = JSON.stringify({ type: "InvoiceSettled", invoiceId: "inv_123" });
+    const sig = signPayload(body, WEBHOOK_SECRET).replace("sha256=", "");
+    const valid = await verifyWebhookSignature(body, sig);
+    expect(valid).toBe(true);
+  });
+
+  test("rejects same-prefix signatures with wrong length", async () => {
+    const { verifyWebhookSignature } = await import("@/lib/server/btcpay");
+    const body = JSON.stringify({ type: "InvoiceSettled", invoiceId: "inv_123" });
+    const valid = await verifyWebhookSignature(body, "sha256=abc");
+    expect(valid).toBe(false);
+  });
+
   test("parses InvoiceSettled payload", async () => {
     const { parseWebhookPayload } = await import("@/lib/server/btcpay");
     const raw = JSON.stringify({

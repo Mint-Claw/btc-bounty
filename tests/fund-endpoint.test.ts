@@ -14,14 +14,23 @@ vi.mock("@/lib/server/payments", () => ({
 vi.mock("@/lib/server/webhooks", () => ({
   deliverWebhook: vi.fn(),
 }));
+vi.mock("@/lib/server/auth", () => ({
+  authenticateRequest: vi.fn(),
+}));
 
 import { createInvoice } from "@/lib/server/btcpay";
 import { createPayment, getPaymentByBountyId } from "@/lib/server/payments";
+import { authenticateRequest } from "@/lib/server/auth";
 
 describe("POST /api/bounties/:id/fund", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (getPaymentByBountyId as any).mockResolvedValue(null);
+    (authenticateRequest as any).mockReturnValue({
+      apiKey: "test-key",
+      nsecHex: "a".repeat(64),
+      pubkey: "poster-pubkey",
+    });
     (createInvoice as any).mockResolvedValue({
       id: "inv_test_001",
       checkoutLink: "https://btcpay.test/i/inv_test_001",
@@ -36,15 +45,45 @@ describe("POST /api/bounties/:id/fund", () => {
     });
   });
 
-  async function callFund(bountyId: string, body: Record<string, unknown>) {
+  async function callFund(bountyId: string, body: Record<string, unknown>, headers: Record<string, string> = { "X-API-Key": "test-key" }) {
     const { POST } = await import("@/app/api/bounties/[id]/fund/route");
     const request = new Request("http://localhost:3000/api/bounties/test/fund", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...headers },
       body: JSON.stringify(body),
     });
     return POST(request, { params: Promise.resolve({ id: bountyId }) });
   }
+
+
+
+  it("rejects unauthenticated funding invoice requests", async () => {
+    (authenticateRequest as any).mockReturnValue(null);
+
+    const res = await callFund("bounty-123", { amountSats: 50000 }, {});
+
+    expect(res.status).toBe(401);
+    expect(createInvoice).not.toHaveBeenCalled();
+  });
+
+  it("rejects funding on behalf of a different poster pubkey", async () => {
+    const res = await callFund("bounty-123", { amountSats: 50000, posterPubkey: "other-pubkey" });
+
+    expect(res.status).toBe(403);
+    expect(createInvoice).not.toHaveBeenCalled();
+  });
+
+  it("rejects duplicate pending funding invoices", async () => {
+    (getPaymentByBountyId as any).mockResolvedValue({
+      id: "pay_pending",
+      status: "pending",
+    });
+
+    const res = await callFund("bounty-123", { amountSats: 50000, posterPubkey: "poster-pubkey" });
+
+    expect(res.status).toBe(409);
+    expect(createInvoice).not.toHaveBeenCalled();
+  });
 
   it("creates invoice and returns checkout URL", async () => {
     const res = await callFund("bounty-123", { amountSats: 50000 });

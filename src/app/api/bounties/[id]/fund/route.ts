@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createInvoice } from "@/lib/server/btcpay";
+import { authenticateRequest } from "@/lib/server/auth";
 import { createPayment, getPaymentByBountyId } from "@/lib/server/payments";
 import { deliverWebhook } from "@/lib/server/webhooks";
 
@@ -21,8 +22,24 @@ export async function POST(
 ): Promise<NextResponse> {
   try {
     const { id: bountyId } = await params;
+    const agent = authenticateRequest(request);
+    if (!agent) {
+      return NextResponse.json(
+        { error: "Unauthorized. Provide X-API-Key header." },
+        { status: 401 },
+      );
+    }
+
     const body = await request.json();
     const amountSats = Number(body.amountSats);
+    const posterPubkey = typeof body.posterPubkey === "string" ? body.posterPubkey : agent.pubkey;
+
+    if (posterPubkey !== agent.pubkey) {
+      return NextResponse.json(
+        { error: "Authenticated poster does not match requested posterPubkey" },
+        { status: 403 },
+      );
+    }
 
     // Validate amount
     if (!Number.isFinite(amountSats) || !Number.isInteger(amountSats) || amountSats < MIN_AMOUNT_SATS) {
@@ -41,15 +58,15 @@ export async function POST(
 
     // Check if already funded
     const existing = await getPaymentByBountyId(bountyId);
-    if (existing && (existing.status === "funded" || existing.status === "paid")) {
+    if (existing && ["pending", "funded", "paid"].includes(existing.status)) {
       return NextResponse.json(
-        { error: "This bounty is already funded" },
+        { error: existing.status === "pending" ? "This bounty already has a pending funding invoice" : "This bounty is already funded" },
         { status: 409 },
       );
     }
 
     const platformFeeSats = Math.round(amountSats * PLATFORM_FEE_RATE);
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3457";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3457";
 
     // Create BTCPay invoice
     const invoice = await createInvoice({
@@ -65,7 +82,7 @@ export async function POST(
     await createPayment({
       bountyId,
       bountyEventId: bountyId,
-      posterPubkey: body.posterPubkey || "unknown",
+      posterPubkey,
       amountSats,
       btcpayInvoiceId: invoice.id,
     });

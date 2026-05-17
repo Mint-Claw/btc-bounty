@@ -59,7 +59,7 @@ export async function GET() {
     env: {
       node: process.version,
       platform: process.platform,
-      app_url: process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3457}`,
+      app_url: process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || `http://localhost:${process.env.PORT || 3457}`,
     },
   });
 }
