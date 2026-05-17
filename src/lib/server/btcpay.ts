@@ -104,6 +104,20 @@ function getConfig(): BTCPayConfig {
   return { url: url.replace(/\/$/, ""), apiKey, storeId, webhookSecret };
 }
 
+function normalizeCheckoutLink(invoice: BTCPayInvoice, publicUrl: string): BTCPayInvoice {
+  if (!invoice.checkoutLink) return invoice;
+
+  try {
+    const configured = new URL(publicUrl);
+    const checkout = new URL(invoice.checkoutLink);
+    checkout.protocol = configured.protocol;
+    checkout.host = configured.host;
+    return { ...invoice, checkoutLink: checkout.toString() };
+  } catch {
+    return invoice;
+  }
+}
+
 // ─── HTTP helpers ────────────────────────────────────────────
 
 async function btcpayFetch<T>(
@@ -169,10 +183,12 @@ export async function createInvoice(
     }),
   };
 
-  return btcpayFetch<BTCPayInvoice>(
+  const invoice = await btcpayFetch<BTCPayInvoice>(
     `/api/v1/stores/${config.storeId}/invoices`,
     { method: "POST", body: JSON.stringify(body) },
   );
+
+  return normalizeCheckoutLink(invoice, config.url);
 }
 
 /**

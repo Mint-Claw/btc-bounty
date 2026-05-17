@@ -109,6 +109,34 @@ describe("BTCPay Client", () => {
     expect(body.checkout.defaultPaymentMethod).toBe("BTC-LightningNetwork");
   });
 
+  it("rewrites returned checkout links to the configured public BTCPay URL", async () => {
+    process.env.BTCPAY_URL = "https://btcpay.btcbounty.org";
+    const invoiceResponse = {
+      id: "inv_rewrite",
+      status: "New",
+      amount: "10000",
+      currency: "SATS",
+      checkoutLink: "https://old-quick-tunnel.example/i/inv_rewrite",
+      createdTime: Date.now(),
+      expirationTime: Date.now() + 3600000,
+      monitoringExpiration: Date.now() + 7200000,
+      metadata: { bountyId: "bounty-rewrite" },
+    };
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(invoiceResponse),
+    });
+
+    const { createInvoice } = await import("@/lib/server/btcpay");
+    const result = await createInvoice({
+      amount: 10000,
+      bountyId: "bounty-rewrite",
+    });
+
+    expect(result.checkoutLink).toBe("https://btcpay.btcbounty.org/i/inv_rewrite");
+  });
+
   it("creates invoice with BTC currency", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
