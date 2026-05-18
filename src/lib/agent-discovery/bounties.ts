@@ -1,5 +1,6 @@
 import { nip19 } from "nostr-tools";
-import { BOUNTY_KIND, type Bounty } from "@/lib/nostr/schema";
+import { BOUNTY_KIND, type Bounty, type BountyCategory, type BountyStatus } from "@/lib/nostr/schema";
+import type { BountyEventRow } from "@/lib/server/db";
 
 export const AGENT_DISCOVERY_VERSION = "btc-bounty.agent-discovery.v1";
 
@@ -44,8 +45,57 @@ export interface AgentDiscoveryBounty {
   };
 }
 
+export function normalizeBountyStatus(status: string | null | undefined): BountyStatus | null {
+  const normalized = (status || "OPEN").trim().toUpperCase().replace(/-/g, "_");
+  if (normalized === "ACTIVE" || normalized === "OPEN") return "OPEN";
+  if (normalized === "IN_PROGRESS") return "IN_PROGRESS";
+  if (normalized === "COMPLETED") return "COMPLETED";
+  if (normalized === "CANCELLED" || normalized === "CANCELED") return "CANCELLED";
+  return null;
+}
+
 export function isActiveOpenBounty(bounty: Bounty, now: number): boolean {
-  return bounty.status === "OPEN" && (!bounty.expiry || bounty.expiry > now);
+  return normalizeBountyStatus(bounty.status) === "OPEN" && (!bounty.expiry || bounty.expiry > now);
+}
+
+function getTag(tags: string[][], name: string): string | undefined {
+  return tags.find((tag) => tag[0] === name)?.[1];
+}
+
+export function cachedBountyRowToBounty(row: BountyEventRow): Bounty | null {
+  const status = normalizeBountyStatus(row.status);
+  if (!status) return null;
+
+  let tags: string[][] = [];
+  try {
+    tags = row.tags_json ? JSON.parse(row.tags_json) : [];
+  } catch {
+    tags = [];
+  }
+
+  const topicTags = tags
+    .filter((tag) => tag[0] === "t" && tag[1])
+    .map((tag) => tag[1]);
+  const expiryTag = getTag(tags, "expiry");
+  const expiry = expiryTag ? parseInt(expiryTag, 10) : undefined;
+
+  return {
+    id: row.id,
+    pubkey: row.pubkey,
+    dTag: row.d_tag,
+    title: row.title,
+    summary: row.summary || "",
+    content: row.content || "",
+    rewardSats: row.reward_sats,
+    status,
+    category: (row.category || "other") as BountyCategory,
+    lightning: row.lightning || "",
+    expiry: Number.isFinite(expiry) ? expiry : undefined,
+    createdAt: row.created_at,
+    winner: row.winner_pubkey || undefined,
+    image: getTag(tags, "image"),
+    tags: topicTags,
+  };
 }
 
 export function formatAgentDiscoveryBounty(params: {
