@@ -99,9 +99,27 @@ export function setupTestDB(): void {
     CREATE INDEX IF NOT EXISTS idx_applications_applicant ON bounty_applications(applicant_pubkey);
     CREATE INDEX IF NOT EXISTS idx_applications_status ON bounty_applications(status);
 
+    CREATE TABLE IF NOT EXISTS bounty_submissions (
+      id TEXT PRIMARY KEY,
+      bounty_d_tag TEXT NOT NULL,
+      bounty_event_id TEXT,
+      submitter_pubkey TEXT NOT NULL,
+      proof_url TEXT NOT NULL,
+      description TEXT NOT NULL,
+      nostr_event_id TEXT,
+      status TEXT DEFAULT 'submitted',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_submissions_bounty ON bounty_submissions(bounty_d_tag);
+    CREATE INDEX IF NOT EXISTS idx_submissions_submitter ON bounty_submissions(submitter_pubkey);
+    CREATE INDEX IF NOT EXISTS idx_submissions_status ON bounty_submissions(status);
+
     INSERT INTO schema_version (version) VALUES (1);
     INSERT INTO schema_version (version) VALUES (2);
     INSERT INTO schema_version (version) VALUES (4);
+    INSERT INTO schema_version (version) VALUES (7);
   `);
 
   setDB(testDb);

@@ -13,6 +13,7 @@ import { signEventServer } from "@/lib/server/signing";
 import { publishToRelays, fetchFromRelays } from "@/lib/server/relay";
 import { BOUNTY_KIND, parseBountyEvent } from "@/lib/nostr/schema";
 import { deliverWebhook } from "@/lib/server/webhooks";
+import { insertSubmission, getSubmissionsForBounty } from "@/lib/server/db";
 
 // Kind 30079 = bounty submission (custom app kind)
 const SUBMISSION_KIND = 30079;
@@ -106,6 +107,25 @@ export async function POST(
     ],
   });
 
+  const submissionId = crypto.randomUUID();
+  try {
+    insertSubmission({
+      id: submissionId,
+      bountyDTag: bounty.dTag || bountyEventId,
+      bountyEventId,
+      submitterPubkey: applicantPubkey,
+      proofUrl,
+      description,
+      nostrEventId: submissionEvent.id,
+    });
+  } catch (err) {
+    console.error("[submit] DB insert failed:", err);
+    return NextResponse.json(
+      { error: "Failed to store submission" },
+      { status: 500 },
+    );
+  }
+
   // Publish to relays
   const published = await publishToRelays(submissionEvent);
 
@@ -121,8 +141,10 @@ export async function POST(
 
   return NextResponse.json({
     success: true,
+    id: submissionId,
     submissionEventId: submissionEvent.id,
     publishedTo: published,
+    stored: true,
     message: `Submission recorded for bounty "${bounty.title}"`,
   });
 }
@@ -136,13 +158,30 @@ export async function GET(
 ) {
   const { id: bountyEventId } = await params;
 
-  // Fetch submission events referencing this bounty
-  const submissions = await fetchFromRelays({
-    kinds: [SUBMISSION_KIND],
-    "#e": [bountyEventId],
-  });
+  const localSubmissions = getSubmissionsForBounty(bountyEventId).map((row) => ({
+    id: row.id,
+    submitterPubkey: row.submitter_pubkey,
+    proofUrl: row.proof_url,
+    description: row.description,
+    submittedAt: row.created_at,
+    createdAt: Math.floor(new Date(row.created_at).getTime() / 1000),
+    status: row.status,
+    nostrEventId: row.nostr_event_id || undefined,
+    source: "local",
+  }));
 
-  const parsed = submissions.map((event) => {
+  // Fetch submission events referencing this bounty (best-effort relay merge)
+  let submissions: Awaited<ReturnType<typeof fetchFromRelays>> = [];
+  try {
+    submissions = await fetchFromRelays({
+      kinds: [SUBMISSION_KIND],
+      "#e": [bountyEventId],
+    });
+  } catch {
+    submissions = [];
+  }
+
+  const relayParsed = submissions.map((event) => {
     let content: { description?: string; proofUrl?: string; submittedAt?: string } = {};
     try {
       content = JSON.parse(event.content);
@@ -162,12 +201,23 @@ export async function GET(
       description: content.description || "",
       submittedAt: content.submittedAt || new Date(event.created_at * 1000).toISOString(),
       createdAt: event.created_at,
+      status: "submitted",
+      nostrEventId: event.id,
+      source: "relay",
     };
   });
 
+  const seen = new Set(localSubmissions.map((submission) => submission.nostrEventId || submission.id));
+  const merged = [...localSubmissions];
+  for (const submission of relayParsed) {
+    if (seen.has(submission.id)) continue;
+    seen.add(submission.id);
+    merged.push(submission);
+  }
+
   return NextResponse.json({
     bountyId: bountyEventId,
-    submissions: parsed,
-    count: parsed.length,
+    submissions: merged,
+    count: merged.length,
   });
 }

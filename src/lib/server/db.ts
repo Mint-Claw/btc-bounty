@@ -207,6 +207,30 @@ function migrate(db: Database.Database): void {
     }
     db.exec(`INSERT INTO schema_version (version) VALUES (6);`);
   }
+
+  if (current.v < 7) {
+    db.exec(`
+      -- Bounty submissions (stored locally before/alongside relay publish)
+      CREATE TABLE IF NOT EXISTS bounty_submissions (
+        id TEXT PRIMARY KEY,
+        bounty_d_tag TEXT NOT NULL,
+        bounty_event_id TEXT,
+        submitter_pubkey TEXT NOT NULL,
+        proof_url TEXT NOT NULL,
+        description TEXT NOT NULL,
+        nostr_event_id TEXT,
+        status TEXT DEFAULT 'submitted', -- submitted, accepted, rejected
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_submissions_bounty ON bounty_submissions(bounty_d_tag);
+      CREATE INDEX IF NOT EXISTS idx_submissions_submitter ON bounty_submissions(submitter_pubkey);
+      CREATE INDEX IF NOT EXISTS idx_submissions_status ON bounty_submissions(status);
+
+      INSERT INTO schema_version (version) VALUES (7);
+    `);
+  }
 }
 
 // ─── Toku Listing Queries ────────────────────────────────────
@@ -649,4 +673,64 @@ export function getApplicationsByApplicant(pubkey: string): ApplicationRow[] {
   return db.prepare(
     "SELECT * FROM bounty_applications WHERE applicant_pubkey = ? ORDER BY created_at DESC"
   ).all(pubkey) as ApplicationRow[];
+}
+
+
+// ─── Submission Queries ─────────────────────────────────────
+
+export interface SubmissionRow {
+  id: string;
+  bounty_d_tag: string;
+  bounty_event_id: string | null;
+  submitter_pubkey: string;
+  proof_url: string;
+  description: string;
+  nostr_event_id: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function insertSubmission(submission: {
+  id: string;
+  bountyDTag: string;
+  bountyEventId?: string;
+  submitterPubkey: string;
+  proofUrl: string;
+  description: string;
+  nostrEventId?: string;
+}): void {
+  const db = getDB();
+  db.prepare(`
+    INSERT INTO bounty_submissions (id, bounty_d_tag, bounty_event_id, submitter_pubkey, proof_url, description, nostr_event_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    submission.id,
+    submission.bountyDTag,
+    submission.bountyEventId || null,
+    submission.submitterPubkey,
+    submission.proofUrl,
+    submission.description,
+    submission.nostrEventId || null,
+  );
+}
+
+export function getSubmissionsForBounty(bountyDTag: string): SubmissionRow[] {
+  const db = getDB();
+  return db.prepare(
+    "SELECT * FROM bounty_submissions WHERE bounty_d_tag = ? ORDER BY created_at DESC"
+  ).all(bountyDTag) as SubmissionRow[];
+}
+
+export function getSubmission(id: string): SubmissionRow | undefined {
+  const db = getDB();
+  return db.prepare("SELECT * FROM bounty_submissions WHERE id = ?").get(id) as SubmissionRow | undefined;
+}
+
+export function updateSubmissionStatus(id: string, status: string): boolean {
+  const db = getDB();
+  const result = db.prepare(
+    "UPDATE bounty_submissions SET status = ?, updated_at = datetime('now') WHERE id = ?"
+  ).run(status, id);
+  return result.changes > 0;
 }

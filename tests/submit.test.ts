@@ -14,6 +14,10 @@ vi.mock("@/lib/server/relay", () => ({
 vi.mock("@/lib/server/webhooks", () => ({
   deliverWebhook: vi.fn(),
 }));
+vi.mock("@/lib/server/db", () => ({
+  insertSubmission: vi.fn(),
+  getSubmissionsForBounty: vi.fn(),
+}));
 vi.mock("@/lib/nostr/schema", () => ({
   BOUNTY_KIND: 30050,
   parseBountyEvent: vi.fn(),
@@ -25,6 +29,7 @@ import { signEventServer } from "@/lib/server/signing";
 import { publishToRelays, fetchFromRelays } from "@/lib/server/relay";
 import { parseBountyEvent } from "@/lib/nostr/schema";
 import { deliverWebhook } from "@/lib/server/webhooks";
+import { insertSubmission, getSubmissionsForBounty } from "@/lib/server/db";
 
 function makeRequest(body: unknown): Request {
   return new Request("http://localhost/api/bounties/abc123/submit", {
@@ -39,6 +44,7 @@ const mockParams = Promise.resolve({ id: "abc123" });
 describe("POST /api/bounties/:id/submit", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getSubmissionsForBounty).mockReturnValue([]);
   });
 
   it("rejects unauthenticated requests", async () => {
@@ -108,6 +114,15 @@ describe("POST /api/bounties/:id/submit", () => {
     const json = await res.json();
     expect(json.success).toBe(true);
     expect(json.submissionEventId).toBe("sub123");
+    expect(json.stored).toBe(true);
+    expect(insertSubmission).toHaveBeenCalledWith(expect.objectContaining({
+      bountyDTag: "abc123",
+      bountyEventId: "abc123",
+      submitterPubkey: "pubkey1",
+      proofUrl: "https://github.com/pr/123",
+      description: "Completed the work",
+      nostrEventId: "sub123",
+    }));
     expect(deliverWebhook).toHaveBeenCalledWith("bounty.submitted", expect.any(Object));
   });
 
@@ -137,16 +152,49 @@ describe("POST /api/bounties/:id/submit", () => {
 describe("GET /api/bounties/:id/submit", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getSubmissionsForBounty).mockReturnValue([]);
   });
 
   it("returns empty submissions list", async () => {
     vi.mocked(fetchFromRelays).mockResolvedValue([]);
+    vi.mocked(getSubmissionsForBounty).mockReturnValue([]);
     const req = new Request("http://localhost/api/bounties/abc123/submit");
     const res = await GET(req as any, { params: mockParams });
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.count).toBe(0);
     expect(json.submissions).toEqual([]);
+  });
+
+  it("returns locally persisted submissions when relay returns none", async () => {
+    vi.mocked(fetchFromRelays).mockResolvedValue([]);
+    vi.mocked(getSubmissionsForBounty).mockReturnValue([
+      {
+        id: "local-sub-1",
+        bounty_d_tag: "abc123",
+        bounty_event_id: "event-abc123",
+        submitter_pubkey: "submitter-local",
+        proof_url: "https://github.com/pr/local",
+        description: "Local persisted work",
+        nostr_event_id: "nostr-local-1",
+        status: "submitted",
+        created_at: "2026-05-18T00:00:00Z",
+        updated_at: "2026-05-18T00:00:00Z",
+      },
+    ] as any);
+    const req = new Request("http://localhost/api/bounties/abc123/submit");
+    const res = await GET(req as any, { params: mockParams });
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.count).toBe(1);
+    expect(json.submissions[0]).toMatchObject({
+      id: "local-sub-1",
+      submitterPubkey: "submitter-local",
+      proofUrl: "https://github.com/pr/local",
+      description: "Local persisted work",
+      nostrEventId: "nostr-local-1",
+      source: "local",
+    });
   });
 
   it("parses submission events correctly", async () => {
