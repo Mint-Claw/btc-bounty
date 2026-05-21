@@ -31,6 +31,30 @@ export interface BountyPayment {
   settledAt: string | null;
 }
 
+export type PaymentLedgerType =
+  | "funding_invoice_created"
+  | "funding_confirmed"
+  | "payout_created"
+  | "payout_paid"
+  | "payment_failed";
+
+export type PaymentLedgerStatus = "pending" | "funded" | "created" | "settled" | "failed";
+
+export interface PaymentLedgerEntry {
+  id: string;
+  paymentId: string;
+  bountyId: string;
+  type: PaymentLedgerType;
+  status: PaymentLedgerStatus;
+  grossSats: number;
+  platformFeeSats: number;
+  payoutSats: number;
+  referenceId: string | null;
+  winnerPubkey: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
 // ─── Schema migration ────────────────────────────────────────
 
 let migrated = false;
@@ -65,6 +89,32 @@ function ensureMigrated(): void {
   );
   alters.push(
     "CREATE INDEX IF NOT EXISTS idx_bounty_payments_payout ON bounty_payments(btcpay_payout_id)"
+  );
+  alters.push(`
+    CREATE TABLE IF NOT EXISTS payment_ledger_entries (
+      seq INTEGER PRIMARY KEY AUTOINCREMENT,
+      id TEXT NOT NULL UNIQUE,
+      payment_id TEXT NOT NULL,
+      bounty_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      status TEXT NOT NULL,
+      gross_sats INTEGER NOT NULL,
+      platform_fee_sats INTEGER NOT NULL,
+      payout_sats INTEGER NOT NULL,
+      reference_id TEXT,
+      winner_pubkey TEXT,
+      notes TEXT,
+      created_at TEXT NOT NULL
+    )
+  `);
+  alters.push(
+    "CREATE INDEX IF NOT EXISTS idx_payment_ledger_payment ON payment_ledger_entries(payment_id)"
+  );
+  alters.push(
+    "CREATE INDEX IF NOT EXISTS idx_payment_ledger_bounty ON payment_ledger_entries(bounty_id)"
+  );
+  alters.push(
+    "CREATE INDEX IF NOT EXISTS idx_payment_ledger_type ON payment_ledger_entries(type)"
   );
 
   if (alters.length > 0) {
@@ -105,6 +155,84 @@ function rowToPayment(row: Record<string, unknown>): BountyPayment {
   };
 }
 
+function rowToLedgerEntry(row: Record<string, unknown>): PaymentLedgerEntry {
+  return {
+    id: row.id as string,
+    paymentId: row.payment_id as string,
+    bountyId: row.bounty_id as string,
+    type: row.type as PaymentLedgerType,
+    status: row.status as PaymentLedgerStatus,
+    grossSats: row.gross_sats as number,
+    platformFeeSats: row.platform_fee_sats as number,
+    payoutSats: row.payout_sats as number,
+    referenceId: (row.reference_id as string) || null,
+    winnerPubkey: (row.winner_pubkey as string) || null,
+    notes: (row.notes as string) || null,
+    createdAt: row.created_at as string,
+  };
+}
+
+function ledgerAmounts(payment: BountyPayment): {
+  grossSats: number;
+  platformFeeSats: number;
+  payoutSats: number;
+} {
+  const platformFeeSats = payment.platformFeeSats || Math.floor(payment.amountSats * PLATFORM_FEE_PCT);
+  return {
+    grossSats: payment.amountSats,
+    platformFeeSats,
+    payoutSats: payment.amountSats - platformFeeSats,
+  };
+}
+
+function recordLedgerEntry(params: {
+  payment: BountyPayment;
+  type: PaymentLedgerType;
+  status: PaymentLedgerStatus;
+  referenceId?: string | null;
+  winnerPubkey?: string | null;
+  notes?: string | null;
+}): PaymentLedgerEntry {
+  ensureMigrated();
+  const db = getDB();
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const amounts = ledgerAmounts(params.payment);
+
+  db.prepare(`
+    INSERT INTO payment_ledger_entries
+      (id, payment_id, bounty_id, type, status, gross_sats, platform_fee_sats,
+       payout_sats, reference_id, winner_pubkey, notes, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    params.payment.id,
+    params.payment.bountyId,
+    params.type,
+    params.status,
+    amounts.grossSats,
+    amounts.platformFeeSats,
+    amounts.payoutSats,
+    params.referenceId || null,
+    params.winnerPubkey || null,
+    params.notes || null,
+    now,
+  );
+
+  return {
+    id,
+    paymentId: params.payment.id,
+    bountyId: params.payment.bountyId,
+    type: params.type,
+    status: params.status,
+    ...amounts,
+    referenceId: params.referenceId || null,
+    winnerPubkey: params.winnerPubkey || null,
+    notes: params.notes || null,
+    createdAt: now,
+  };
+}
+
 // ─── CRUD ────────────────────────────────────────────────────
 
 /**
@@ -141,7 +269,7 @@ export async function createPayment(params: {
     now,
   );
 
-  return {
+  const payment: BountyPayment = {
     id,
     bountyId: params.bountyId,
     bountyEventId: params.bountyEventId,
@@ -157,6 +285,15 @@ export async function createPayment(params: {
     fundedAt: null,
     settledAt: null,
   };
+
+  recordLedgerEntry({
+    payment,
+    type: "funding_invoice_created",
+    status: "pending",
+    referenceId: params.btcpayInvoiceId,
+  });
+
+  return payment;
 }
 
 /**
@@ -221,6 +358,7 @@ export async function updatePaymentStatus(
 ): Promise<BountyPayment | null> {
   ensureMigrated();
   const db = getDB();
+  const previous = await getPayment(id);
   const now = new Date().toISOString();
 
   let sql = "UPDATE bounty_payments SET status = ?, updated_at = ?";
@@ -245,7 +383,35 @@ export async function updatePaymentStatus(
   const result = db.prepare(sql).run(...params);
   if (result.changes === 0) return null;
 
-  return getPayment(id);
+  const updated = await getPayment(id);
+  if (updated && previous?.status !== status) {
+    if (status === "funded") {
+      recordLedgerEntry({
+        payment: updated,
+        type: "funding_confirmed",
+        status: "funded",
+        referenceId: updated.btcpayInvoiceId,
+      });
+    } else if (status === "paid") {
+      recordLedgerEntry({
+        payment: updated,
+        type: "payout_paid",
+        status: "settled",
+        referenceId: updated.btcpayPayoutId,
+        winnerPubkey: winnerPubkey || updated.winnerPubkey,
+      });
+    } else if (status === "failed") {
+      recordLedgerEntry({
+        payment: updated,
+        type: "payment_failed",
+        status: "failed",
+        referenceId: updated.btcpayPayoutId || updated.btcpayInvoiceId,
+        winnerPubkey: updated.winnerPubkey,
+      });
+    }
+  }
+
+  return updated;
 }
 
 /**
@@ -270,7 +436,61 @@ export async function setPayoutInfo(
     .run(payoutId, winnerPubkey, winnerLud16, now, id);
 
   if (result.changes === 0) return null;
-  return getPayment(id);
+  const updated = await getPayment(id);
+  if (updated) {
+    recordLedgerEntry({
+      payment: updated,
+      type: "payout_created",
+      status: "created",
+      referenceId: payoutId,
+      winnerPubkey,
+    });
+  }
+  return updated;
+}
+
+export async function listPaymentLedger(paymentId?: string): Promise<PaymentLedgerEntry[]> {
+  ensureMigrated();
+  const db = getDB();
+
+  if (paymentId) {
+    const rows = db
+      .prepare("SELECT * FROM payment_ledger_entries WHERE payment_id = ? ORDER BY seq ASC")
+      .all(paymentId);
+    return (rows as Record<string, unknown>[]).map(rowToLedgerEntry);
+  }
+
+  const rows = db
+    .prepare("SELECT * FROM payment_ledger_entries ORDER BY seq ASC")
+    .all();
+  return (rows as Record<string, unknown>[]).map(rowToLedgerEntry);
+}
+
+export async function getPlatformLedgerStats(): Promise<{
+  totalGrossSats: number;
+  totalPlatformFeeSats: number;
+  totalPayoutSats: number;
+  settledPayouts: number;
+}> {
+  ensureMigrated();
+  const db = getDB();
+  const row = db
+    .prepare(`
+      SELECT
+        COALESCE(SUM(CASE WHEN type = 'payout_paid' AND status = 'settled' THEN gross_sats ELSE 0 END), 0) as gross,
+        COALESCE(SUM(CASE WHEN type = 'payout_paid' AND status = 'settled' THEN platform_fee_sats ELSE 0 END), 0) as fees,
+        COALESCE(SUM(CASE WHEN type = 'payout_paid' AND status = 'settled' THEN payout_sats ELSE 0 END), 0) as payouts,
+        COALESCE(SUM(CASE WHEN type = 'payout_paid' AND status = 'settled' THEN 1 ELSE 0 END), 0) as settled
+      FROM payment_ledger_entries
+    `)
+    .get() as Record<string, number>;
+
+  return {
+    totalGrossSats: row.gross,
+    totalPlatformFeeSats: row.fees,
+    totalPayoutSats: row.payouts,
+    settledPayouts: row.settled,
+  };
 }
 
 /**
@@ -342,5 +562,6 @@ export function resetPaymentStore(): void {
   migrated = false; // Force re-migration check (needed when DB swapped in tests)
   ensureMigrated();
   const db = getDB();
+  db.prepare("DELETE FROM payment_ledger_entries").run();
   db.prepare("DELETE FROM bounty_payments").run();
 }

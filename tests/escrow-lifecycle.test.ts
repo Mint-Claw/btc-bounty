@@ -14,6 +14,8 @@ import {
   listPayments,
   getPaymentStats,
   resetPaymentStore,
+  listPaymentLedger,
+  getPlatformLedgerStats,
   type BountyPayment,
 } from "@/lib/server/payments";
 
@@ -62,6 +64,56 @@ describe("Escrow Lifecycle", () => {
     expect(paid!.status).toBe("paid");
     expect(paid!.settledAt).toBeTruthy();
     expect(paid!.winnerPubkey).toBe("npub1winner");
+  });
+
+
+
+  it("records a payout and platform-cut ledger through the escrow lifecycle", async () => {
+    const payment = await createPayment({
+      bountyId: "ledger-bounty-1",
+      bountyEventId: "evt_ledger_1",
+      posterPubkey: "npub1poster",
+      amountSats: 50000,
+      btcpayInvoiceId: "inv_ledger_001",
+    });
+
+    let ledger = await listPaymentLedger(payment.id);
+    expect(ledger).toHaveLength(1);
+    expect(ledger[0]).toMatchObject({
+      paymentId: payment.id,
+      bountyId: "ledger-bounty-1",
+      type: "funding_invoice_created",
+      status: "pending",
+      grossSats: 50000,
+      platformFeeSats: 2500,
+      payoutSats: 47500,
+      referenceId: "inv_ledger_001",
+    });
+
+    await updatePaymentStatus(payment.id, "funded");
+    await setPayoutInfo(payment.id, "payout_ledger_001", "npub1winner", "winner@ln.addr");
+    await updatePaymentStatus(payment.id, "paid", "npub1winner");
+
+    ledger = await listPaymentLedger(payment.id);
+    expect(ledger.map((entry) => entry.type)).toEqual([
+      "funding_invoice_created",
+      "funding_confirmed",
+      "payout_created",
+      "payout_paid",
+    ]);
+    expect(ledger.at(-1)).toMatchObject({
+      status: "settled",
+      grossSats: 50000,
+      platformFeeSats: 2500,
+      payoutSats: 47500,
+      referenceId: "payout_ledger_001",
+    });
+
+    const stats = await getPlatformLedgerStats();
+    expect(stats.totalGrossSats).toBe(50000);
+    expect(stats.totalPlatformFeeSats).toBe(2500);
+    expect(stats.totalPayoutSats).toBe(47500);
+    expect(stats.settledPayouts).toBe(1);
   });
 
   it("handles invoice expiry gracefully", async () => {
