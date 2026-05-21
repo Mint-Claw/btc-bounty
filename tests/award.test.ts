@@ -71,6 +71,18 @@ vi.mock("@/lib/server/payments", () => ({
   updatePaymentStatus: vi.fn(async () => {}),
 }));
 
+
+vi.mock("@/lib/server/db", () => ({
+  getCachedBounty: vi.fn(() => undefined),
+  updateBountyStatus: vi.fn(() => true),
+  updateApplicationStatus: vi.fn(() => true),
+  getApplicationsForBounty: vi.fn(() => [
+    { id: "app-winner", applicant_pubkey: "winner_npub_hex" },
+    { id: "app-other", applicant_pubkey: "other_pubkey_hex" },
+  ]),
+  updateSubmissionStatusesForBounty: vi.fn(() => ({ accepted: 1, rejected: 1 })),
+}));
+
 // ── Import after mocks ──────────────────────────────
 
 import { POST } from "@/app/api/bounties/[id]/award/[npub]/route";
@@ -78,6 +90,11 @@ import { authenticateRequest } from "@/lib/server/auth";
 import { fetchFromRelays, publishToRelays } from "@/lib/server/relay";
 import { createPayout } from "@/lib/server/btcpay";
 import { getPaymentByBountyId, setPayoutInfo } from "@/lib/server/payments";
+import {
+  updateApplicationStatus,
+  updateBountyStatus,
+  updateSubmissionStatusesForBounty,
+} from "@/lib/server/db";
 
 function makeRequest(body?: Record<string, unknown>): NextRequest {
   return new Request("http://localhost/api/bounties/abc/award/winner", {
@@ -143,6 +160,11 @@ describe("POST /api/bounties/:id/award/:npub", () => {
     expect(data.winner).toBe("winner_npub_hex");
     expect(data.relaysPublished).toBe(3);
     expect(publishToRelays).toHaveBeenCalledOnce();
+    expect(updateBountyStatus).toHaveBeenCalledWith("bounty-123", "COMPLETED", "winner_npub_hex");
+    expect(updateApplicationStatus).toHaveBeenCalledWith("app-winner", "accepted");
+    expect(updateApplicationStatus).toHaveBeenCalledWith("app-other", "rejected");
+    expect(updateSubmissionStatusesForBounty).toHaveBeenCalledWith("bounty-123", "winner_npub_hex");
+    expect(data.submissions).toMatchObject({ accepted: 1, rejected: 1 });
   });
 
   it("triggers payout when lightning address provided and escrow funded", async () => {

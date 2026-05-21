@@ -14,7 +14,7 @@ import {
   getPaymentByBountyId,
   setPayoutInfo,
 } from "@/lib/server/payments";
-import { getCachedBounty, updateBountyStatus, updateApplicationStatus, getApplicationsForBounty } from "@/lib/server/db";
+import { getCachedBounty, updateBountyStatus, updateApplicationStatus, getApplicationsForBounty, updateSubmissionStatusesForBounty } from "@/lib/server/db";
 import { deliverWebhook } from "@/lib/server/webhooks";
 import { TokuSyncService } from "@/lib/server/toku-sync";
 
@@ -86,7 +86,7 @@ export async function POST(
     console.warn("[award] SQLite update failed for d_tag:", dTag);
   }
 
-  // Update winning application status
+  // Update winning application and submission statuses
   const apps = getApplicationsForBounty(dTag);
   for (const app of apps) {
     if (app.applicant_pubkey === winnerPubkey) {
@@ -95,6 +95,7 @@ export async function POST(
       updateApplicationStatus(app.id, "rejected");
     }
   }
+  const submissionStatusUpdates = updateSubmissionStatusesForBounty(dTag, winnerPubkey);
 
   // Best-effort: publish updated event to NOSTR
   let relaysPublished = 0;
@@ -170,6 +171,7 @@ export async function POST(
     winner: winnerPubkey,
     relaysPublished,
     stored: true,
+    submissions: submissionStatusUpdates,
     ...(payoutResult && { payout: payoutResult }),
   });
 }

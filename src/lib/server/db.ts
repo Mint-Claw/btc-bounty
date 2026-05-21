@@ -734,3 +734,27 @@ export function updateSubmissionStatus(id: string, status: string): boolean {
   ).run(status, id);
   return result.changes > 0;
 }
+
+
+export function updateSubmissionStatusesForBounty(
+  bountyDTag: string,
+  winnerPubkey: string,
+): { accepted: number; rejected: number } {
+  const db = getDB();
+  const tx = db.transaction(() => {
+    const accepted = db.prepare(`
+      UPDATE bounty_submissions
+      SET status = 'accepted', updated_at = datetime('now')
+      WHERE bounty_d_tag = ? AND submitter_pubkey = ?
+    `).run(bountyDTag, winnerPubkey).changes;
+
+    const rejected = db.prepare(`
+      UPDATE bounty_submissions
+      SET status = 'rejected', updated_at = datetime('now')
+      WHERE bounty_d_tag = ? AND submitter_pubkey != ?
+    `).run(bountyDTag, winnerPubkey).changes;
+
+    return { accepted, rejected };
+  });
+  return tx();
+}

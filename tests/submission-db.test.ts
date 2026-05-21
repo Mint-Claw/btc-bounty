@@ -6,6 +6,7 @@ import {
   getSubmission,
   getSubmissionsForBounty,
   updateSubmissionStatus,
+  updateSubmissionStatusesForBounty,
 } from "@/lib/server/db";
 
 describe("submission persistence", () => {
@@ -56,4 +57,28 @@ describe("submission persistence", () => {
     expect(updateSubmissionStatus("sub-local-2", "accepted")).toBe(true);
     expect(getSubmission("sub-local-2")!.status).toBe("accepted");
   });
+
+  it("accepts winning submission and rejects other bounty submissions", () => {
+    insertSubmission({
+      id: "sub-win",
+      bountyDTag: "award-bounty",
+      submitterPubkey: "winner-pubkey",
+      proofUrl: "https://example.com/win",
+      description: "Winning proof",
+    });
+    insertSubmission({
+      id: "sub-lose",
+      bountyDTag: "award-bounty",
+      submitterPubkey: "other-pubkey",
+      proofUrl: "https://example.com/lose",
+      description: "Other proof",
+    });
+
+    const result = updateSubmissionStatusesForBounty("award-bounty", "winner-pubkey");
+
+    expect(result).toMatchObject({ accepted: 1, rejected: 1 });
+    expect(getSubmission("sub-win")!.status).toBe("accepted");
+    expect(getSubmission("sub-lose")!.status).toBe("rejected");
+  });
+
 });
